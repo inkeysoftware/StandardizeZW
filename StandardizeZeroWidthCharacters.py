@@ -21,6 +21,18 @@ import glob, os
 # \optionDescription (Only used if you select YES above.) What is the default form for any cluster NOT listed in the STANDARD_CLUSTERS.TXT file. Valid options: NONE, ZWJ, ZWNJ
 # \optionDefault ZWJ
 
+# This tool does not currently assume that the Standard_Clusters.txt file contains a comprehensive list of every possible cluster found in the data.
+# If the file contains only a partial list, non-matching clusters will not be standardized.
+# This tool does not assume that there will be only one standard form of a particular cluster, though the current version of AnalyzeZeroWidthCharacters
+# generates Standard_Clusters.txt with only the most common form of each cluster.
+
+# TODO: We need to figure out how to handle SpellingStatus.xml. These changes should apply at least to the words marked as correct spellings, 
+# and also to corrections provided for incorrect spellings. If there are words that are marked as incorrect spellings, we shouldn't apply this to them,
+# because they may be listed as incorrect *because* of ZW characters; Standardizing these might result in the correct spelling being treated as
+# incorrect. 
+
+# TODO: See if there's a way to apply this to the user's own Notes file, so that notes won't become detached from the word/context they are attached to when the spelling there changes. (Not essential, but would be nice.)
+
 #__________________________________________________________________________________
 # INITIALIZE CONSTANTS WITH REGEX STRINGS:
 
@@ -84,6 +96,9 @@ def loadFromFile():
                 
             pref[base] = cluster  # Set the preferred form of this base to be the current cluster.
                                   # If the file contains multiple forms of a given base, whichever comes last will be the preferred form.
+                                  # TODO: Let's make it that whichever comes *first* will be the preferred form, so Standard_Clusters.txt
+                                  # could contain one row per cluster type with additional columns for secondary acceptable-but-less-preferred
+                                  # forms.
     except Exception, e:
         sys.stderr.write("Problem reading file: " + infile + "\n")
         return 0 # Error
