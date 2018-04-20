@@ -20,7 +20,7 @@ import glob, os
 # \optionDefault ZWJ
 
 
-# c = set of all consonant characters
+# c = set of all consonant characters, from each Indic script
 c = '[' + u'\u0915-\u0939\u0958-\u095f\u097b-\u097f' + u'\u0995-\u09b9\u09ce\u09dc-\u09df\u09f0-\u09f1' + u'\u0a15-\u0a39\u0a59-\u0a5f' + u'\u0a95-\u0ab9' + u'\u0b15-\u0b39\u0b5c-\u0b5f\u0b71' + u'\u0b95-\u0bb9' + u'u0c15-\u0c39\u0c58\u0c59' + u'\u0c95-\u0cb9\u0cde' + u'u0d15-\u0d39\u0d7a-\u0d7f' + ']'
 
 # v = set of all vowel characters
