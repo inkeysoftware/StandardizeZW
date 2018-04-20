@@ -209,7 +209,7 @@ printedHeadingAlready = 0   # whether we've printed the column heading already
 # HANDLING of zwOpt OPTION TEMPORARILY REMOVED
 # zwOpt = DefaultToResetAllZW.upper()
 
-# Disable Phase 2 if any errors in loading input file.
+# Disable Phase 2 if there are any errors in loading input file.
 if (StandardizeClusters=="Yes" and not loadFromFile()):
     sys.stderr.write("Skipping standardizing clusters.\n")
     StandardizeClusters = "No"
@@ -218,8 +218,8 @@ if (StandardizeClusters=="Yes" and not loadFromFile()):
 # (Normally they should select "All books".)
 for reference, text in scr.allBooks(Books):  # TODO: Check that allBooks() here means "all selected books".
     text2 = makeChanges(text, reference[:-4])  # Perform changes to the text. (Book ID such as LUK is extracted from reference.)
-    if text2 != text:
-        scrOut.putText(reference, text2)
+    if text2 != text:                          # If text has changed, (TODO: Or if output project is different from input project?)
+        scrOut.putText(reference, text2)       #    save changed text out to file.
 scrOut.save(OutputProject)  # The books present might have changed so we need to update ssf file.
 
 # Now process any other files specified by the user. (By default, TermRenderings.xml and BookNames.xml.)
