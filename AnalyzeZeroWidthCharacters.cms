@@ -1,0 +1,9 @@
+\check Analyze Zero-Width Characters
+\submenu Indic
+\script AnalyzeZeroWidthCharacters.py
+\description Analyzes occurrences of ZWJ and ZWNJ characters in the text, based on a wordlist that you have exported from Paratext. Before running this tool, please export a wordlist, saving it in the project folder with the name WORDLIST.XML. This tool will create (overwriting if necessary) a file in the same folder called Standard_Clusters.TXT containing the most frequently-occurring form of each cluster. Before using this tool, please read the Help file for detailed instructions. [Version 0.3]
+\toText
+\helpFile AnalyzeZeroWidthCharacters.rtf
+\utf8
+
+

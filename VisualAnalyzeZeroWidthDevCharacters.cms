@@ -1,0 +1,11 @@
+\check Visual Analyze Zero-Width DEV Characters
+\submenu Indic
+\script VisualAnalyzeZeroWidthDevCharacters.py
+\description Analyzes occurrences of ZWJ and ZWNJ characters in the text, based on an wordlist that you have exported from Paratext. Please specify the full path to your WORDLIST.XML file as Parameter 1, and the full path to your output file (e.g. C:\TEMP\CLUSTER_USAGE.TXT) as Parameter 2. Before using this tool, please read the Help file for detailed instructions. [Version 0.1]
+\toText
+\parameter1 Wordlist
+\parameter2 Outfile
+\helpFile AnalyzeZeroWidthCharacters.rtf
+\utf8
+
+
