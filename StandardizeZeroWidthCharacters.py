@@ -37,20 +37,20 @@ import glob, os
 # INITIALIZE CONSTANTS WITH REGEX STRINGS:
 
 # c = set of all consonant characters, from each Indic script
-c = '[' + u'\u0915-\u0939\u0958-\u095f\u097b-\u097f' + u'\u0995-\u09b9\u09ce\u09dc-\u09df\u09f0-\u09f1' + u'\u0a15-\u0a39\u0a59-\u0a5f' + u'\u0a95-\u0ab9' + u'\u0b15-\u0b39\u0b5c-\u0b5f\u0b71' + u'\u0b95-\u0bb9' + u'\u0c15-\u0c39\u0c58\u0c59' + u'\u0c95-\u0cb9\u0cde' + u'\u0d15-\u0d39\u0d7a-\u0d7f' + ']'
+c = '[' + r'\u0915-\u0939\u0958-\u095f\u097b-\u097f' + r'\u0995-\u09b9\u09ce\u09dc-\u09df\u09f0-\u09f1' + r'\u0a15-\u0a39\u0a59-\u0a5f' + r'\u0a95-\u0ab9' + r'\u0b15-\u0b39\u0b5c-\u0b5f\u0b71' + r'\u0b95-\u0bb9' + r'\u0c15-\u0c39\u0c58\u0c59' + r'\u0c95-\u0cb9\u0cde' + r'\u0d15-\u0d39\u0d7a-\u0d7f' + ']'
 
 # v = set of all vowel characters
-v = '[' + u'\u0904-\u0914\u093e-\u094c' + ']'  # TO DO: Need to add other scripts, only DEV so far
+v = '[' + r'\u0904-\u0914\u093e-\u094c' + ']'  # TO DO: Need to add other scripts, only DEV so far
 
 # optional nukta
-optNukta = u'[\u093c\u09bc\u0a3c\u0abc\u0b3c\u0bbc\u0c3c\u0cbc\u0d3c]*' # includes some yet-to-be adopted nuktas.
+optNukta = r'[\u093c\u09bc\u0a3c\u0abc\u0b3c\u0bbc\u0c3c\u0cbc\u0d3c]*' # includes some yet-to-be adopted nuktas.
 
 # The character class of all scripts' viramas, and the class of everything that is NOT a virama.
-virama = u'[\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d4d]'
-notVirama = u'([^\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d4d])'
+virama = r'[\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d4d]'
+notVirama = r'([^\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d4d])'
 
 # zw = any number of optional ZWJ or ZWNJ
-zw = u'[\u200c\u200d]*'
+zw = r'[\u200c\u200d]*'
 
 # cluster: This is our definition of an orthographic consonant cluster
 cluster =  '(?:' + c + optNukta + zw + virama + zw + ')+(?:' + c + optNukta + ')?' 

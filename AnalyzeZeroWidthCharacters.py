@@ -1,4 +1,5 @@
 # coding=utf-8
+from ScriptureObjects import ScriptureText
 import re
 import sys
 import codecs
@@ -6,11 +7,15 @@ import codecs
 # c = set of all consonant characters
 c = '[' + r'\u0915-\u0939\u0958-\u095f\u097b-\u097f' + r'\u0995-\u09b9\u09ce\u09dc-\u09df\u09f0-\u09f1' + r'\u0a15-\u0a39\u0a59-\u0a5f' + r'\u0a95-\u0ab9' + r'\u0b15-\u0b39\u0b5c-\u0b5f\u0b71' + r'\u0b95-\u0bb9' + r'\u0c15-\u0c39\u0c58\u0c59' + r'\u0c95-\u0cb9\u0cde' + r'\u0d15-\u0d39\u0d7a-\u0d7f' + ']'
 
+# v = set of all vowel characters
+v = '[' + r'\u0904-\u0914\u093e-\u094c' + r'\u0b04-\u0b14\u0b3e-\u0b4c\u0b56-\u0b57' + ']'  # TO DO: Need to add other scripts, only DEV and ODI so far
+
 # optional nukta
 optNukta = r'[\u093c\u09bc\u0a3c\u0abc\u0b3c\u0bbc\u0c3c\u0cbc\u0d3c]*' # includes some yet-to-be adopted nuktas.
 
 # virama
 virama = r'[\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d4d]'
+notVirama = r'([^\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d4d])'
 
 # zw
 zw = r'[\u200c\u200d]*'
@@ -25,7 +30,7 @@ outfile = SettingsDirectory + Project + "\\Standard_Clusters.TXT"
 
 # Return true if input is valid
 def validInput():
-    global outfile, hoh, bases, thisVirama, f, infile
+    global outfile, hoh, bases, thisVirama, f, infile, notVirama, v, virama
 
     # if len(Parameter1) == 0:
         # sys.stderr.write("You must enter the full path and filename of the exported wordlist file to read.\n")
@@ -36,45 +41,43 @@ def validInput():
         # return 0
 
     try:
-        f = codecs.open(infile, encoding='utf-8')
-        filecontents = f.read()
-    except Exception, e:
-        sys.stderr.write("Unable to read file: " + infile + "\nMake sure you exported this file from the Wordlist tool.\n")
-        return 0
-
-    try:
         f = codecs.open(outfile, mode='w', encoding='utf-8')
         f.write(u'\uFEFF\r\n') # BOM
     except Exception, e:
         sys.stderr.write("Unable to write to file: " + Parameters + "\n")
         return 0
-
+      
     try:
-        for line in re.split(r'[\r\n]+', filecontents):
-            if line == '':
-                continue
-            matchobj = re.search(r' word="(\S+)" count="(\d+)"', line)
-            if matchobj:
-                wd = matchobj.group(1)
-                ct = int(matchobj.group(2))
-                clusters = re.findall(cluster, wd)
-                for cl in clusters:
-                    base = re.sub(zw, '', cl)
-                    if base in hoh:
-                        if cl in hoh[base]:
-                            hoh[base][cl] += ct
-                        else:
-                            hoh[base][cl] = ct
+        scr = ScriptureText(Project)     # Open input project
+        if Project == OutputProject:
+            scrOut = scr    
+        else:
+            scrOut = ScriptureText(OutputProject)    # Open separate output project
+              
+        for reference, text in scr.allBooks(Books):  # TODO: Check that allBooks() here means "all selected books".
+            text = re.sub(notVirama + u'[\u200c\u200d]+', r'\1', text)  # Remove any ZW that doesn't follow virama
+            text = re.sub('(' + v + virama + ')' + u'[\u200c\u200d]+', r'\1', text) # Remove ZW that follows virama that follows a vowel.
+                                # TODO: Figure out which other bad ZW characters may be left in the text, and delete them too.
+            clusters = re.findall(cluster, text)
+            for cl in clusters:
+                base = re.sub(zw, '', cl)
+                if base in hoh:
+                    if cl in hoh[base]:
+                        ct += 1
+                        hoh[base][cl] += ct
                     else:
-                        hoh[base] = {cl : ct}
-
+                        ct = 1
+                        hoh[base][cl] = ct
+                else:
+                    ct = 1
+                    hoh[base] = {cl : ct}
+                    
     except Exception, e:
-        sys.stderr.write("Problem reading file: " + infile + "\n")
+        sys.stderr.write("Error looping through Scripture books.")
         return 0
     
     return 1    
-
-
+    
 clusCt = 0
 if validInput():
 ##    f.write("Root\tS\tS Ct\tJ\tJ Ct\tN\tN Ct\tOther\tType\tCt\r\n")
