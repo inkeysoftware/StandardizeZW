@@ -33,7 +33,7 @@ formTally = {} # A hash array of hash arrays to tally the frequency count for ea
 
 infile = SettingsDirectory + Project + "\\WORDLIST.XML"
 outfile = SettingsDirectory + Project + "\\Standard_Clusters.TXT"       # Original output file, for single valid form
-outfile2 = SettingsDirectory + Project + "\\StandardizeClusters.TXT"    # New output to support multiple valid forms
+outfile2 = SettingsDirectory + Project + "\\ClusterStatus.TXT"    # New output to support multiple valid forms
 
 #__________________________________________________________________________________
 def countChanges(aStr, bStr):  
@@ -77,6 +77,11 @@ def countChanges(aStr, bStr):
 
 
 #__________________________________________________________________________________
+def showAll(s):
+# Return a version of the string that shows [zwj] and [zwnj] in place of invisible characters
+    return re.sub(u'\u200c', '[zwnj]', re.sub(u'\u200d', '[zwj]', s))
+
+#__________________________________________________________________________________
 def weightedCt(cl, base):
 # Add a fraction (depending on form) to frequency tally as a tie-breaker.
     if cl == base:
@@ -108,12 +113,13 @@ def initialize():
         return 0
 
     # New output
-    # try:
-        # f2 = codecs.open(outfile2, mode='w', encoding='utf-8')
-        # f2.write(u'\uFEFFFind\tFindShowing\tCount\tReplace\tReplaceShowing\tExamples\n') # BOM and column headings
-    # except Exception, e:
-        # sys.stderr.write("Unable to write to file: " + outfile2 + "\n")
-        # return 0
+    try:
+        f2 = codecs.open(outfile2, mode='w', encoding='utf-8')
+        f2.write(u'\uFEFFRoot\tCluster\tClusterShow\tCount\tCorrect\tCorrectShow\r\n') # BOM and column headings
+        #TODO: Add an Examples column header
+    except Exception, e:
+        sys.stderr.write("Unable to write to file: " + outfile2 + "\n")
+        return 0
       
     try:
         scr = ScriptureText(Project)     # Open input project
@@ -155,7 +161,7 @@ invalidReport = ""
 if initialize():
     for base in sorted(formTally.iterkeys()):
         clusCt += 1
-        # root = re.sub(virama, '', base)
+        root = re.sub(virama, '', base)
         # cform = re.sub('(' + virama + ')', r'\1' + u'\u200c', base)
         # dform = re.sub('(' + virama + ')', r'\1' + u'\u200d', base)
 
@@ -186,6 +192,19 @@ if initialize():
         sortedForms = sorted(formTally[base].iterkeys(), key=lambda a: formTally[base][a], reverse=True)
 
         f.write(sortedForms[0] + "\r\n")
+        
+        # First write out best form
+        bestForm = sortedForms[0]
+        bestFormShow = showAll(bestForm)
+        f2.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t\t\t") 
+        f2.write("\r\n")# TODO: Append examples
+        
+        # Now write out all remaining forms
+        for x in range(1, len(sortedForms)):
+            f2.write(root + "\t" + sortedForms[x] + "\t" + showAll(sortedForms[x]) + "\t" + str(int(formTally[base][sortedForms[x]])) + "\t" + bestForm + "\t" + bestFormShow + "\t") 
+            f2.write("\r\n") # TODO: Append examples
+            
+        f2.write("\n")
         
 # Report on number of clusters written
 if (clusCt>0):
