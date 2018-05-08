@@ -75,6 +75,23 @@ def countChanges(aStr, bStr):
         sys.stderr.write("ERROR: This script was supposed to ignore invalid ZW characters, but the comparison is failing: " + repr(aStr[a]) + "!" + repr(bStr[b]) + "\n")
     return 0
 
+
+#__________________________________________________________________________________
+def weightedCt(cl, base):
+# Add a fraction (depending on form) to frequency tally as a tie-breaker.
+    if cl == base:
+        return 1.2      # 2nd highest priority for STACKED form
+        
+    dform = re.sub('(' + virama + ')', r'\1' + u'\u200d', base)
+    if cl == dform:
+        return 1.3      # Highest priority given for JOINED form
+    
+    cform = re.sub('(' + virama + ')', r'\1' + u'\u200c', base)
+    if cl == cform:
+        return 1.1      # 3rd priority for NON-JOINED form
+        
+    return 1.0          # Lowest priority for mixed form (may occur with 2 or more viramas)
+    
 #__________________________________________________________________________________
 def initialize():
 # Open file for output, and read all books to tally the frequency of each form of each cons combination.
@@ -120,9 +137,9 @@ def initialize():
                     if cl in formTally[base]:
                         formTally[base][cl] += 1
                     else:
-                        formTally[base][cl] = 1
+                        formTally[base][cl] = weightedCt(cl, base)
                 else:
-                    formTally[base] = {cl : 1}
+                    formTally[base] = {cl : weightedCt(cl, base)}
                     
     except Exception, e:
         sys.stderr.write("Error looping through Scripture books.")
@@ -138,33 +155,37 @@ invalidReport = ""
 if initialize():
     for base in sorted(formTally.iterkeys()):
         clusCt += 1
-        root = re.sub(virama, '', base)
-        cform = re.sub('(' + virama + ')', r'\1' + u'\u200c', base)
-        dform = re.sub('(' + virama + ')', r'\1' + u'\u200d', base)
+        # root = re.sub(virama, '', base)
+        # cform = re.sub('(' + virama + ')', r'\1' + u'\u200c', base)
+        # dform = re.sub('(' + virama + ')', r'\1' + u'\u200d', base)
 
-        maxCt = 0
-        bestCl = ''
-        if dform in formTally[base]:
-            if formTally[base][dform] > maxCt:
-                maxCt = formTally[base][dform]
-                bestCl = dform
-            del formTally[base][dform]
-        if base in formTally[base]:
-            if formTally[base][base] > maxCt:
-                maxCt = formTally[base][base]
-                bestCl = base
-            del formTally[base][base]
-        if cform in formTally[base]:
-            if formTally[base][cform] > maxCt:
-                maxCt = formTally[base][cform]
-                bestCl = cform
-            del formTally[base][cform]
-        for cl in sorted(formTally[base].iterkeys()):
-            if formTally[base][cl] > maxCt:
-                maxCt = formTally[base][cl]
-                bestCl = cl
+        # maxCt = 0
+        # bestCl = ''
+        # if dform in formTally[base]:
+            # if formTally[base][dform] > maxCt:
+                # maxCt = formTally[base][dform]
+                # bestCl = dform
+            # del formTally[base][dform]
+        # if base in formTally[base]:
+            # if formTally[base][base] > maxCt:
+                # maxCt = formTally[base][base]
+                # bestCl = base
+            # del formTally[base][base]
+        # if cform in formTally[base]:
+            # if formTally[base][cform] > maxCt:
+                # maxCt = formTally[base][cform]
+                # bestCl = cform
+            # del formTally[base][cform]
+        # for cl in sorted(formTally[base].iterkeys()):
+            # if formTally[base][cl] > maxCt:
+                # maxCt = formTally[base][cl]
+                # bestCl = cl
 
-        f.write(bestCl + "\r\n")
+        # f.write(bestCl + "\r\n")
+
+        sortedForms = sorted(formTally[base].iterkeys(), key=lambda a: formTally[base][a], reverse=True)
+
+        f.write(sortedForms[0] + "\r\n")
         
 # Report on number of clusters written
 if (clusCt>0):
