@@ -4,6 +4,9 @@ import re
 import sys
 import codecs
 
+#__________________________________________________________________________________
+# INITIALIZE CONSTANTS WITH REGEX STRINGS:
+
 # c = set of all consonant characters
 c = '[' + r'\u0915-\u0939\u0958-\u095f\u097b-\u097f' + r'\u0995-\u09b9\u09ce\u09dc-\u09df\u09f0-\u09f1' + r'\u0a15-\u0a39\u0a59-\u0a5f' + r'\u0a95-\u0ab9' + r'\u0b15-\u0b39\u0b5c-\u0b5f\u0b71' + r'\u0b95-\u0bb9' + r'\u0c15-\u0c39\u0c58\u0c59' + r'\u0c95-\u0cb9\u0cde' + r'\u0d15-\u0d39\u0d7a-\u0d7f' + ']'
 
@@ -23,54 +26,103 @@ zw = r'[\u200c\u200d]*'
 # cluster
 cluster =  '(?:' + c + optNukta + zw + virama + zw + ')+(?:' + c + optNukta + ')?'
 
-hoh = {}
+#__________________________________________________________________________________
+# INITIALIZE OTHER CONSONANTS AND VARIABLES:
+
+formTally = {} # A hash array of hash arrays to tally the frequency count for each form of each combination of consonants
 
 infile = SettingsDirectory + Project + "\\WORDLIST.XML"
-outfile = SettingsDirectory + Project + "\\Standard_Clusters.TXT"
+outfile = SettingsDirectory + Project + "\\Standard_Clusters.TXT"       # Original output file, for single valid form
+outfile2 = SettingsDirectory + Project + "\\StandardizeClusters.TXT"    # New output to support multiple valid forms
 
-# Return true if input is valid
-def validInput():
-    global outfile, hoh, bases, thisVirama, f, infile, notVirama, v, virama
+#__________________________________________________________________________________
+def countChanges(aStr, bStr):  
+# Returns a tally of the differences between two strings, and ensures that the only differences are ZWJ/ZWNJ.
+# Alerts us that we have a bug if we've actually made changes other than to ZW chars.
 
-    # if len(Parameter1) == 0:
-        # sys.stderr.write("You must enter the full path and filename of the exported wordlist file to read.\n")
-        # return 0
+    global abort
+    a = 0               # index as we walk through aStr
+    b = 0               # index as we walk through bStr
+    aLen = len(aStr)
+    bLen = len(bStr)
+    changes = 0         # tally of changes encountered
+    zws = u'\u200c\u200d'  # the ZW chars
+    while 1:            
+        if a == aLen and b == bLen:  # If we've reached the end of both strings at the same time,
+            return changes           #   return the number of changes tallied so far.
+        if a == aLen or b == bLen:   # If we've reached the end of one string before the other,
+            return changes + aLen - a + bLen - b  # return number of changes so far plus number of leftover uncompared chars.
+            # TODO: Verify that the leftover chars are indeed all ZW chars, not the result of accidental deletion of the end of a string!
+            
+        if aStr[a] == bStr[b]:       # If both strings contain the same character at this comparison point,
+            a += 1                   #     increment our index in both strings
+            b += 1                   #     and continue to the next pair.
+            continue
+        if ((aStr[a] in zws) and (bStr[b] in zws)): # If both strings contain a ZW char, but they are different from each other,
+            changes += 1                            #     add one to the changes tally,
+            a += 1                                  #     increment our index in both strings,
+            b += 1                                  #     and continue to the next pair.
+            continue
+        if aStr[a] in zws:    # If our index position in aStr contains a ZW,
+            changes += 1      #    add one to the changes tally,
+            a += 1            #    increment our position in aStr,
+            continue          #    and continue to the next pair.
+        if bStr[b] in zws:    # Likewise for bStr.
+            changes += 1
+            b += 1
+            continue
+        # If none of these were the case, the strings differ by something other than a ZW character! Check what we did wrong!!
+        sys.stderr.write("ERROR: This script was supposed to ignore invalid ZW characters, but the comparison is failing: " + repr(aStr[a]) + "!" + repr(bStr[b]) + "\n")
+    return 0
 
-    # if len(outfile) == 0:
-        # sys.stderr.write("You must enter the full path and filename of the output file to create/overwrite.\n")
-        # return 0
+#__________________________________________________________________________________
+def initialize():
+# Open file for output, and read all books to tally the frequency of each form of each cons combination.
+# Return true if successful.
 
+    global outfile, outfile2, invalidReport, formTally, bases, thisVirama, f, f2, infile, notVirama, v, virama
+
+    # Original output
     try:
         f = codecs.open(outfile, mode='w', encoding='utf-8')
         f.write(u'\uFEFF\r\n') # BOM
     except Exception, e:
-        sys.stderr.write("Unable to write to file: " + Parameters + "\n")
+        sys.stderr.write("Unable to write to file: " + outfile + "\n")
         return 0
+
+    # New output
+    # try:
+        # f2 = codecs.open(outfile2, mode='w', encoding='utf-8')
+        # f2.write(u'\uFEFFFind\tFindShowing\tCount\tReplace\tReplaceShowing\tExamples\n') # BOM and column headings
+    # except Exception, e:
+        # sys.stderr.write("Unable to write to file: " + outfile2 + "\n")
+        # return 0
       
     try:
         scr = ScriptureText(Project)     # Open input project
-        if Project == OutputProject:
-            scrOut = scr    
-        else:
-            scrOut = ScriptureText(OutputProject)    # Open separate output project
               
-        for reference, text in scr.allBooks(Books):  # TODO: Check that allBooks() here means "all selected books".
-            text = re.sub(notVirama + u'[\u200c\u200d]+', r'\1', text)  # Remove any ZW that doesn't follow virama
-            text = re.sub('(' + v + virama + ')' + u'[\u200c\u200d]+', r'\1', text) # Remove ZW that follows virama that follows a vowel.
+        for reference, text in scr.allBooks(Books):  
+        
+            # Ignore any invalid ZW characters. THE REGEXES IN THIS CODE SHOULD MATCH WHAT'S IN THE STANDARDIZE SCRIPT!
+            text2 = re.sub(notVirama + u'[\u200c\u200d]+', r'\1', text)  # Remove any ZW that doesn't follow virama
+            text2 = re.sub('(' + v + virama + ')' + u'[\u200c\u200d]+', r'\1', text2) # Remove ZW that follows virama that follows a vowel.
                                 # TODO: Figure out which other bad ZW characters may be left in the text, and delete them too.
-            clusters = re.findall(cluster, text)
-            for cl in clusters:
-                base = re.sub(zw, '', cl)
-                if base in hoh:
-                    if cl in hoh[base]:
-                        ct += 1
-                        hoh[base][cl] += ct
+                                
+            # Keep track of invalid ZW characters removed, so we can report on that at the end.
+            invalidCt = countChanges(text, text2)
+            if (invalidCt > 0):
+                invalidReport += "\t" + reference[:-4] + ":\t" + str(invalidCt) + "\n"
+                
+            # Count occurrences of each form of each cluster
+            for cl in re.findall(cluster, text2):
+                base = re.sub(zw, '', cl)       # The base form is the simple stacked form
+                if base in formTally:
+                    if cl in formTally[base]:
+                        formTally[base][cl] += 1
                     else:
-                        ct = 1
-                        hoh[base][cl] = ct
+                        formTally[base][cl] = 1
                 else:
-                    ct = 1
-                    hoh[base] = {cl : ct}
+                    formTally[base] = {cl : 1}
                     
     except Exception, e:
         sys.stderr.write("Error looping through Scripture books.")
@@ -78,57 +130,47 @@ def validInput():
     
     return 1    
     
+#__________________________________________________________________________________
+##### MAIN PROGRAM #####
+
 clusCt = 0
-if validInput():
-##    f.write("Root\tS\tS Ct\tJ\tJ Ct\tN\tN Ct\tOther\tType\tCt\r\n")
-    for base in sorted(hoh.iterkeys()):
+invalidReport = ""
+if initialize():
+    for base in sorted(formTally.iterkeys()):
         clusCt += 1
         root = re.sub(virama, '', base)
         cform = re.sub('(' + virama + ')', r'\1' + u'\u200c', base)
         dform = re.sub('(' + virama + ')', r'\1' + u'\u200d', base)
-        # f.write(root + "\t" + base + "\t")
-        # if base in hoh[base]:
-            # f.write(str(hoh[base][base]))
-            # del hoh[base][base]
-        # f.write("\t" + dform + "\t")
-        # if dform in hoh[base]:
-            # f.write(str(hoh[base][dform]))
-            # del hoh[base][dform]
-        # f.write("\t" + cform + "\t")
-        # if cform in hoh[base]:
-            # f.write(str(hoh[base][cform]))
-            # del hoh[base][cform]
-        # for cl in sorted(hoh[base].iterkeys()):
-            # typ = re.sub(virama + u'\u200C', 'N', cl)
-            # typ = re.sub(virama + u'\u200D', 'J', typ)
-            # typ = re.sub(virama, 'S', typ)
-            # typ = re.sub(u'[\u200D\u200C]', 'x', typ)
-            # typ = re.sub(r'[^NJSx]', '', typ)
-            # f.write("\t" + cl + "\t" + typ + "\t" + str(hoh[base][cl]))
+
         maxCt = 0
         bestCl = ''
-        if dform in hoh[base]:
-            if hoh[base][dform] > maxCt:
-                maxCt = hoh[base][dform]
+        if dform in formTally[base]:
+            if formTally[base][dform] > maxCt:
+                maxCt = formTally[base][dform]
                 bestCl = dform
-            del hoh[base][dform]
-        if base in hoh[base]:
-            if hoh[base][base] > maxCt:
-                maxCt = hoh[base][base]
+            del formTally[base][dform]
+        if base in formTally[base]:
+            if formTally[base][base] > maxCt:
+                maxCt = formTally[base][base]
                 bestCl = base
-            del hoh[base][base]
-        if cform in hoh[base]:
-            if hoh[base][cform] > maxCt:
-                maxCt = hoh[base][cform]
+            del formTally[base][base]
+        if cform in formTally[base]:
+            if formTally[base][cform] > maxCt:
+                maxCt = formTally[base][cform]
                 bestCl = cform
-            del hoh[base][cform]
-        for cl in sorted(hoh[base].iterkeys()):
-            if hoh[base][cl] > maxCt:
-                maxCt = hoh[base][cl]
+            del formTally[base][cform]
+        for cl in sorted(formTally[base].iterkeys()):
+            if formTally[base][cl] > maxCt:
+                maxCt = formTally[base][cl]
                 bestCl = cl
 
         f.write(bestCl + "\r\n")
         
+# Report on number of clusters written
 if (clusCt>0):
-    ##sys.stderr.write(str(clusCt) + " clusters written to " + outfile + "\n\nPaste the contents of this file into a spreadsheet for analysis.\nFrom this you can create a STANDARD_CLUSTERS.TXT file to be used with the <Standardize Zero-Width Characters> tool,\nand an INVALID_CLUSTERS.TXT file to be used with the <Generate Zero-Width Spelling Rules> tool.")
-    sys.stderr.write(str(clusCt) + " clusters written to " + outfile + "\n\n")
+    sys.stderr.write(str(clusCt) + " clusters written to " + outfile + "\n")
+    
+# Report on invalid ZW characters, if found
+if (len(invalidReport) > 0):
+    sys.stderr.write("\nAlso note: Using the STANDARDIZE tool to remove invalid ZW characters will fix this many issues:\n" + invalidReport + "\n")
+
