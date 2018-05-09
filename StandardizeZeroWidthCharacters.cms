@@ -1,7 +1,7 @@
 \check Standardize Zero-Width Characters [CAN CHANGE TEXT]
 \submenu Indic
 \script StandardizeZeroWidthCharacters.py
-\description Standardizes occurrences of ZWJ and ZWNJ characters in the text, based on a STANDARD_CLUSTERS.TXT file that you must have created in the input project folder. IMPORTANT: This tool can make widespread changes. Before running it, mark a point in your project history in case you need to restore your project to that point. Before using this tool, please read the Help file for detailed instructions. [Version 0.31]
+\description Standardizes occurrences of ZWJ and ZWNJ characters in the text, based on a ClusterStatus.TXT file that you must have created in the input project folder. IMPORTANT: This tool can make widespread changes. Before running it, mark a point in your project history in case you need to restore your project to that point. Before using this tool, please read the Help file for detailed instructions. After running this tool, use Tools > Compare Texts to ensure that the changes made were correct. [Version 0.5]
 \books
 \toList
 \outputProject
@@ -15,7 +15,7 @@
 
 \optionName StandardizeClusters
 \optionLocalizedName Standardize clusters?
-\optionDescription Should this tool replace consonant clusters with the corresponding forms specified in the Standard_Clusters.txt file?
+\optionDescription Should this tool replace consonant clusters with the corresponding forms specified in the ClusterStatus.txt file?
 \optionDefault Yes
 
 \optionName AdditionalFiles

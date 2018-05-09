@@ -6,25 +6,11 @@ import codecs
 import glob, os
 
 # StandardizeZeroWidthCharacters 
-# VERSION 0.3
+# VERSION 0.5
 # See accompanying Help file for purpose and usage.
 
-## THE FOLLOWING OPTIONS HAVE BEEN REMOVED FROM THE CMS FILE FOR NOW:
-
-# \optionName ResetAllZW
-# \optionLocalizedName Reset all ZWJ and ZWNJ?
-# \optionDescription Chose Yes if you wish to reset *all* ZWJ and ZWNJ characters in the text, including any that are in clusters not listed in the CLUSTERS.TXT file.
-# \optionDefault No
-
-# \optionName DefaultToResetAllZW
-# \optionLocalizedName Reset to what?
-# \optionDescription (Only used if you select YES above.) What is the default form for any cluster NOT listed in the STANDARD_CLUSTERS.TXT file. Valid options: NONE, ZWJ, ZWNJ
-# \optionDefault ZWJ
-
-# This tool does not currently assume that the Standard_Clusters.txt file contains a comprehensive list of every possible cluster found in the data.
-# If the file contains only a partial list, non-matching clusters will not be standardized.
-# This tool does not assume that there will be only one standard form of a particular cluster, though the current version of AnalyzeZeroWidthCharacters
-# generates Standard_Clusters.txt with only the most common form of each cluster.
+# Phase 1: Removes ZWNJ/ZWJ found in invalid positions.
+# Phase 2: Applies cluster corrections found in ClusterStatus.txt to the text.
 
 # TODO: We need to figure out how to handle SpellingStatus.xml. These changes should apply at least to the words marked as correct spellings, 
 # and also to corrections provided for incorrect spellings. If there are words that are marked as incorrect spellings, we shouldn't apply this to them,
@@ -36,69 +22,62 @@ import glob, os
 #__________________________________________________________________________________
 # INITIALIZE CONSTANTS WITH REGEX STRINGS:
 
-# c = set of all consonant characters, from each Indic script
-c = '[' + r'\u0915-\u0939\u0958-\u095f\u097b-\u097f' + r'\u0995-\u09b9\u09ce\u09dc-\u09df\u09f0-\u09f1' + r'\u0a15-\u0a39\u0a59-\u0a5f' + r'\u0a95-\u0ab9' + r'\u0b15-\u0b39\u0b5c-\u0b5f\u0b71' + r'\u0b95-\u0bb9' + r'\u0c15-\u0c39\u0c58\u0c59' + r'\u0c95-\u0cb9\u0cde' + r'\u0d15-\u0d39\u0d7a-\u0d7f' + ']'
+# consonants
+cCodes = u'\u0915-\u0939\u0958-\u095f\u097b-\u097f' + u'\u0995-\u09b9\u09ce\u09dc-\u09df\u09f0-\u09f1' + u'\u0a15-\u0a39\u0a59-\u0a5f' + u'\u0a95-\u0ab9' + u'\u0b15-\u0b39\u0b5c-\u0b5f\u0b71' + u'\u0b95-\u0bb9' + u'\u0c15-\u0c39\u0c58\u0c59' + u'\u0c95-\u0cb9\u0cde' + u'\u0d15-\u0d39\u0d7a-\u0d7f'
+c = '[' + cCodes + ']'          # c = set of all consonant characters, from each Indic script
+nonCons = '[^' + cCodes + ']'   # nonCons = set of all characters that are not Indic consonants. 
 
-# v = set of all vowel characters
-v = '[' + r'\u0904-\u0914\u093e-\u094c' + ']'  # TO DO: Need to add other scripts, only DEV so far
-
-# optional nukta
-optNukta = r'[\u093c\u09bc\u0a3c\u0abc\u0b3c\u0bbc\u0c3c\u0cbc\u0d3c]*' # includes some yet-to-be adopted nuktas.
+# nukta
+nuktaCodes = u'\u093c\u09bc\u0a3c\u0abc\u0b3c\u0bbc\u0c3c\u0cbc\u0d3c' # includes some yet-to-be adopted nuktas.
+optNukta = '[' + nuktaCodes + ']*' # zero or more nukta characters
 
 # The character class of all scripts' viramas, and the class of everything that is NOT a virama.
-virama = r'[\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d4d]'
-notVirama = r'([^\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d4d])'
+viramaCodes = u'\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d4d'
+virama = '[' + viramaCodes + ']'
+notVirama = '([^' + viramaCodes + '])'
 
 # zw = any number of optional ZWJ or ZWNJ
-zw = r'[\u200c\u200d]*'
+zw = u'[\u200c\u200d]*'
 
 # cluster: This is our definition of an orthographic consonant cluster
-cluster =  '(?:' + c + optNukta + zw + virama + zw + ')+(?:' + c + optNukta + ')?' 
+cluster =  '(?:' + c + optNukta + virama + zw + ')+(?:' + c + optNukta + ')?'
 
 #__________________________________________________________________________________
 # INITIALIZE OTHER CONSONANTS AND VARIABLES:
 
-# The input filename
-infile = SettingsDirectory + Project + "\\STANDARD_CLUSTERS.TXT"
-
-pref = {}  # For a cluster, maps from the "base" form (without ZW chars) to the "preferred" form (with whatever ZW chars are preferred)
-valid = set()  # The set of all valid clusters provided in the input file.
+infile = SettingsDirectory + Project + "\\ClusterStatus.TXT"  # The input filename
 
 #__________________________________________________________________________________
 def loadFromFile():
-# Initializes the above two objects (pref, valid) by reading the input file.
+# Initializes the correction hash by reading the input file.
 # Returns true if sucessful.
 
-    global infile, pref, valid
-    # global ResetAllZW
+    global infile, correction
 
     # Read the contents of the input file into filecontents
     try:
         f = codecs.open(infile, encoding='utf-8')
         filecontents = f.read()
     except Exception, e:
-        sys.stderr.write("Unable to open file: " + infile + "\nPlease create this file containing the standardized forms of clusters.")
+        sys.stderr.write("Unable to open file: " + infile + "\nPlease create this file using the Analyze Zero-Width Characters tool.")
         return 0
 
-    # Parse the filecontents to initialize the 'pref' hash and the 'valid' set.
+    # Parse the filecontents to get cluster mappings
     try:
-        for cluster in re.split(r'[\s\r\n]+', filecontents):  # Split file up into clusters on linebreaks or any whitespace.
-            if cluster == '':                                 # Ignore any leading or trailing whitespace in the file.
-                continue
-            valid.add(cluster)  # Add this cluster to the set of valid clusters
-            base = re.sub(u'[\u200c\u200d]+', '', cluster) # Define base as the form of this cluster without any ZW chars.
+        fileLines = re.split(r' *[\r\n]+[\s\r\n]*', filecontents)   # Split file on newlines (eating any leading or trailing spaces)
+        fields = re.split(r'\t', fileLines[0])                      # Split header line on tabs
+        if fields[1] != 'Cluster' or fields[4] != "Correct":        # Make sure the headers match what we're expecting
+            sys.stderr.write("Unexpected format in file: " + infile + "\nPlease re-create this file using the Analyze Zero-Width Characters tool.")
+            return 0
             
-            # HANDLING of ResetAllZW OPTION TEMPORARILY REMOVED
-            ## If already in dict, we have a duplicate. Cancel ResetAllZW.
-            # if (base in pref.keys()) and (ResetAllZW=="Yes"):
-                # ResetAllZW = "No"
-                # sys.stderr.write("\nWarning: ResetAllZW setting disabled due to multiple forms of same cluster specified in file: " + repr(pref[base]) + "\t" + repr(cluster) + "\n")
-                
-            pref[base] = cluster  # Set the preferred form of this base to be the current cluster.
-                                  # If the file contains multiple forms of a given base, whichever comes last will be the preferred form.
-                                  # TODO: Let's make it that whichever comes *first* will be the preferred form, so Standard_Clusters.txt
-                                  # could contain one row per cluster type with additional columns for secondary acceptable-but-less-preferred
-                                  # forms.
+        for x in range(1, len(fileLines)):                          # For each of the remaining lines,
+            fields = re.split(r' *\t *', fileLines[x])              # Split line on tabs into fields.
+            if len(fields) >= 5 and re.match(r'[\p{L}\p{M}\p{Cf}]+$', fields[4]):   # If there is a replacement field (consisting only of word-forming characters)
+                if re.sub(u'[\u200c\u200d]', '', fields[1]) == re.sub(u'[\u200c\u200d]', '', fields[4]):    # If cluster and its replacement differ only by ZW characters
+                    correction[fields[1]] = fields[4]                                                       # map the invalid cluster to its replacement.
+                else:
+                    sys.stderr.write("Ignoring excessive correction of " + repr(fields[1]) + " to " + repr(fields[4]) + "\n") # This tool must only make ZW changes!
+            
     except Exception, e:
         sys.stderr.write("Problem reading file: " + infile + "\n")
         return 0 # Error
@@ -110,17 +89,12 @@ def prefCluster(matchobj):
 # Provides the standardized replacement wherever a cluster pattern has been matched.
 # This function is called as the replacement parameter of re.sub() in makeChanges().
 
-    global pref, valid
+    global correction
 
-    # if the cluster is in the valid set, return it unchanged.
-    if matchobj.group(0) in valid: 
-        return matchobj.group(0)
-
-    base = re.sub(u'[\u200c\u200d]+', '', matchobj.group(0))  # Find the base form of the cluster.
-    if base in pref.keys():     # If there is a preferred form for this base, return that.
-        return pref[base]
+    if matchobj.group(0) in correction: # if there is a correction for this form,
+        return correction[matchobj.group(0)]    # return it.
     else:
-        return matchobj.group(0)  # Otherwise, return the cluster unchanged.
+        return matchobj.group(0)    # otherwise, return the form unchanged.
 
 #__________________________________________________________________________________
 def countChanges(aStr, bStr):  
@@ -158,9 +132,9 @@ def countChanges(aStr, bStr):
             changes += 1
             b += 1
             continue
-        # If none of these were the case, the strings differ by something other than a ZW character! Check what we did wrong!!
+        # If none of these were the case, the strings differ by something other than a ZW character! Check what we did wrong!! (Did user sneak an excessive correction beyond ZW changes past us?)
         sys.stderr.write("ERROR: This script was only supposed to affect ZW characters, but it was about to make other changes: " + repr(aStr[a]) + "!" + repr(bStr[b]) + "\n")
-        sys.exit()
+        return -1
     return 0
 
 #__________________________________________________________________________________
@@ -173,31 +147,26 @@ def makeChanges(fileContents, bookName):
     changeBadCt = 0     # Tally how many changes are made in this book by Phase 1, removing bad ZW characters.
     changeStdCt = 0     # Tally how many changes are made in this book by Phase 2, standardizing ZW characters.
     
-    # HANDLING of ResetAllZW OPTION TEMPORARILY REMOVED
-    ## For later features
-    # if ResetAllZW == "Yes":
-        # newText = re.sub(u'[\u200c\u200d]+', '', newText)
-        # if zwOpt == "ZWJ":
-            # newText = re.sub('(' + virama + ')', r'\1' + u'\u200d', newText)
-        # elif zwOpt == "ZWNJ":
-             # newText = re.sub('(' + virama + ')', r'\1' + u'\u200c', newText)
-
     # Phase 1: Remove ZW characters from places we don't think they should ever appear.
     if RemoveBadZWs=="Yes":     # If user has opted to use Phase 1:
         phase1Text = re.sub(notVirama + u'[\u200c\u200d]+', r'\1', phase1Text)  # Remove any ZW that doesn't follow virama
-        phase1Text = re.sub('(' + v + virama + ')' + u'[\u200c\u200d]+', r'\1', phase1Text) # Remove ZW that follows virama that follows a vowel.
-                                # TODO: Figure out which other bad ZW characters may be left in the text, and delete them too.
+        phase1Text = re.sub('(' + nonCons + optNukta + virama + ')' + u'[\u200c\u200d]+', r'\1', phase1Text) # Remove ZW that follows a weird virama that follows a non-Consonant.
+
         if phase1Text != fileContents:  # If these Phase 1 changes have made a difference:
-            changeBadCt = countChanges(fileContents, phase1Text)    # add to the tally of changes made to this book by Phase 1
-            totBadChanges += changeBadCt                            # and also add to the cumulative total across all books.
+            changeBadCt = countChanges(fileContents, phase1Text)    # Remember the tally of changes made to this book by Phase 1
+            if changeBadCt == -1:
+                return fileContents         # Abort changes if invalid changes were detected.
+            totBadChanges += changeBadCt                            # Add to the cumulative total across all books.
             
     # Phase 2: Change ZW characters to standardize clusters.
     phase2Text = phase1Text
     if StandardizeClusters=="Yes":  # If user has opted to use Phase 2:
         phase2Text = re.sub(cluster, prefCluster, phase2Text)   # Replace every cluster with its preferred form.
         if phase2Text != phase1Text:                            # If these Phase 2 changes have made a difference:
-            changeStdCt = countChanges(phase1Text, phase2Text)  #   add to the tally of changes made to this book by Phase 2
-            totStdChanges += changeStdCt                        #   and also add to the cumulative total across all books.
+            changeStdCt = countChanges(phase1Text, phase2Text)  #   Remember the tally of changes made to this book by Phase 2
+            if changeStdCt == -1:
+                return fileContents         # Abort changes if invalid changes were detected.
+            totStdChanges += changeStdCt                        #   Add to the cumulative total across all books.
     
     if changeBadCt + changeStdCt > 0:                    # If there have been changes of either kind in this book:
         if printedHeadingAlready == 0:                   #   If we haven't printed the column headings yet,
@@ -217,12 +186,10 @@ if Project == OutputProject:
 else:
     scrOut = ScriptureText(OutputProject)    # Open separate output project
 
+correction = {}             # Maps from an invalid form of a cluster to its correction
 totBadChanges = 0           # tally of Phase 1 changes across all books
 totStdChanges = 0           # tally of Phase 2 changes across all books
 printedHeadingAlready = 0   # whether we've printed the column heading already
-
-# HANDLING of zwOpt OPTION TEMPORARILY REMOVED
-# zwOpt = DefaultToResetAllZW.upper()
 
 # Disable Phase 2 if there are any errors in loading input file.
 if (StandardizeClusters=="Yes" and not loadFromFile()):
@@ -231,9 +198,9 @@ if (StandardizeClusters=="Yes" and not loadFromFile()):
 
 # First process the scripture books that the user has selected in the input project.
 # (Normally they should select "All books".)
-for reference, text in scr.allBooks(Books):  # TODO: Check that allBooks() here means "all selected books".
+for reference, text in scr.allBooks(Books):  
     text2 = makeChanges(text, reference[:-4])  # Perform changes to the text. (Book ID such as LUK is extracted from reference.)
-    if text2 != text:                          # If text has changed, (TODO: Or if output project is different from input project?)
+    if text2 != text or Project != OutputProject:  # If text has changed, or if output project is different from input project,
         scrOut.putText(reference, text2)       #    save changed text out to file.
 scrOut.save(OutputProject)  # The books present might have changed so we need to update ssf file.
 
@@ -258,6 +225,7 @@ for otherFile in otherFiles:
         sys.stderr.write("Unable to open file: " + xmlfile + "\n")
         continue
 
+    xmlfile = SettingsDirectory + OutputProject + "\\" + otherFile   # Files must be in the input project folder
     if text2 != text:                               # If contents have changed:
         try:
             f = codecs.open(xmlfile, mode='w', encoding='utf-8')    # Open file for overwriting
