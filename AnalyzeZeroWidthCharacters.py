@@ -129,14 +129,17 @@ def initialize():
                 invalidReport += "\t" + reference[:-4] + ":\t" + str(invalidCt) + "\n"
                         
             # Find the examples and the clusters
-            for example in re.findall(r'[\w.-]+?' + cluster + '[\w.-]+?', text2):
+            for example in re.findall('[\p{L}\p{M}\p{Cf}]+', text2):
+                #clusFile.write(example)
                 for cl in re.findall(cluster, example):
-                    if cl not in list(listWords.keys()):
-                        listWords.update({cl:example})
+                    #sys.stderr.write(cl)
+                    if cl not in listWords:
+                        #listWords.update({cl:example})
+                        listWords[cl] = [example]
                     else:
                         # if example not in list values - append unique values
                         if example not in listWords[cl]:
-                            listWords[cl] += ", " + example 
+                            listWords[cl].append(example) 
                 
                     # Count occurrences of each form of each cluster
                     base = re.sub(zw, '', cl)       # The base form is the simple stacked form
@@ -155,16 +158,11 @@ def initialize():
     
     return 1    
 
-'''def examples(bCluster):
-    wordList = []
-    scr1 = ScriptureText(Project)     # Open input project
-    
-    samples = listWords.get(bCluster)
-        for sample in samples:
-            if sample not in listWords:
-                listWords.append(sample)
 
-    return ', '.join(listWords) '''
+def examples(bCluster):
+    global listWords
+          
+    return ', '.join(sorted(listWords[bCluster]))
     
     ##### MAIN PROGRAM #####
 
@@ -180,14 +178,14 @@ if initialize():
         bestForm = sortedForms[0]
         bestFormShow = showAll(bestForm)
                 
-        clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + "\t" + listWords.get(bestForm)) 
-        clusFile.write("\r\n")# TODO: Append examples
+        clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + examples(bestForm)) 
+        clusFile.write("\r\n")
         clusCt += 1
         
         # Now write out all remaining forms
         for x in range(1, len(sortedForms)):
-            clusFile.write(root + "\t" + sortedForms[x] + "\t" + showAll(sortedForms[x]) + "\t" + str(int(formTally[base][sortedForms[x]])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + listWords.get(sortedForms[x])) 
-            clusFile.write("\r\n") # TODO: Append examples
+            clusFile.write(root + "\t" + sortedForms[x] + "\t" + showAll(sortedForms[x]) + "\t" + str(int(formTally[base][sortedForms[x]])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examples(sortedForms[x])) 
+            clusFile.write("\r\n") 
             clusCt += 1
             
         clusFile.write("\r\n")
