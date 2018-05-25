@@ -122,27 +122,52 @@ def initialize():
     return 1    
 
 
+# def examples(bCluster):
+    # global listWords      
+    # global ExampleCount
+    # s = sorted(listWords[bCluster])
+    # ls = len(s)
+    # increment = int(ls/ExampleCount) + (ls % ExampleCount > 0)  # increment is rounded up
+    # increment = max(increment, 1) # must not be zero
+    # return ', '.join(s[0:ls:increment])  # Might get slightly different than ExampleCount items
 def examples(bCluster):
     global listWords      
-    return ', '.join(sorted(listWords[bCluster]))
-    
-def examplesList(cCluster):
     global ExampleCount
-    sampleList = re.split(',',examples(cCluster))
+
+    s = sorted(listWords[bCluster])
+    ls = len(s)
+    if ExampleCount >= ls:  # If they want more examples than we have, give all we have.
+        return ', '.join(s)
+        
+    ExampleCount = max(ExampleCount,2)
+    
+    # Create a list containing the examples that were first, last, and equally-spaced between first and last.
+    e = s[0:1]  # First item
+    for i in range(1,ExampleCount):
+        e.append(s[int(0.5 + (ls-1.0)/(ExampleCount-1.0) * i)]) # ExampleCount-1 additional items
+    return ', '.join(e)
+    
+# def examplesList(cCluster):
+    # global ExampleCount
+    # sampleList = re.split(',',examples(cCluster))
        
-    finalList = []
+    # finalList = []
 
-    for example in sampleList:
-        if len(finalList) == ExampleCount:
-            return finalList
-        else:
-            finalList.append(example);
-            for each in difflib.get_close_matches(example,sampleList):
-                sampleList.remove(each)
+    # Logic issue: This might exclude close matches even though we have less than ExampleCount items in the list to begin with.
+    # Also, if none are "close" enough (0.6 ratio by default), this will return a list of the *first* ExampleCount items. e.g. All at the beginning of the alphabet.
+    # To use difflib effectively here, I think we'd have to remove the item that is most similar to another item, and repeat until the list has only ExampleCount items remaining.
+    
+    # for example in sampleList:
+        # if len(finalList) == ExampleCount:
+            # return finalList
+        # else:
+            # finalList.append(example);
+            # for each in difflib.get_close_matches(example,sampleList):
+                # sampleList.remove(each)
            
-    return finalList
+    # return finalList
 
-   ##### MAIN PROGRAM #####
+##### MAIN PROGRAM #####
 
 formTally = {} # A hash array of hash arrays to tally the frequency count for each form of each combination of consonants
 clusCt = 0
@@ -154,23 +179,27 @@ if initialize():
         root = re.sub(virama, '', base)
         sortedForms = sorted(formTally[base].iterkeys(), key=lambda a: formTally[base][a], reverse=True) # Sort from most frequent to least
         
-        # First write out best form
-        bestForm = sortedForms[0]
-        bestFormShow = showAll(bestForm)
-                
-        #clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + tamedEglist(bestForm,5)) 
-        clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t")
-        clusFile.write(','.join(examplesList(bestForm)))
-        clusFile.write("\r\n")
-        clusCt += 1
+        if ExcludeSingle == "No" or len(sortedForms) > 1:
         
-        # Now write out all remaining forms
-        for x in range(1, len(sortedForms)):
-            clusFile.write(root + "\t" + sortedForms[x] + "\t" + showAll(sortedForms[x]) + "\t" + str(int(formTally[base][sortedForms[x]])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examplesList(sortedForms[x])) 
-            clusFile.write("\r\n") 
+            # First write out best form
+            bestForm = sortedForms[0]
+            bestFormShow = showAll(bestForm)
+                    
+            #clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + tamedEglist(bestForm,5)) 
+            # clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t")
+            clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + examples(bestForm)) 
+            # clusFile.write(', '.join(examplesList(bestForm)))
+            clusFile.write("\r\n")
             clusCt += 1
             
-        clusFile.write("\r\n")
+            # Now write out all remaining forms
+            for x in range(1, len(sortedForms)):
+                # clusFile.write(root + "\t" + sortedForms[x] + "\t" + showAll(sortedForms[x]) + "\t" + str(int(formTally[base][sortedForms[x]])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examplesList(sortedForms[x])) # should return a string
+                clusFile.write(root + "\t" + sortedForms[x] + "\t" + showAll(sortedForms[x]) + "\t" + str(int(formTally[base][sortedForms[x]])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examples(sortedForms[x])) 
+                clusFile.write("\r\n") 
+                clusCt += 1
+                
+            clusFile.write("\r\n")
         
 # Report on number of clusters written
 if (clusCt>0):
