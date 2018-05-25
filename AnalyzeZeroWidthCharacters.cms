@@ -1,10 +1,13 @@
 \check Analyze Zero-Width Characters
 \submenu Indic
 \script AnalyzeZeroWidthCharacters.py
-\description Analyzes occurrences of ZWJ and ZWNJ characters in the text. This tool will create (overwriting if necessary) a file in the same folder called ClusterStatus.TXT containing the most frequently-occurring form of each cluster. Before using this tool, please read the Help file for detailed instructions. [Version 0.5]
+\description Analyzes occurrences of ZWJ and ZWNJ characters in the text. This tool will create (overwriting if necessary) a file in the same folder called ClusterStatus.TXT containing the most frequently-occurring form of each cluster. Before using this tool, please read the Help file for detailed instructions. [Version 0.4]
 \books
 \toList
 \helpFile AnalyzeZeroWidthCharacters.rtf
 \utf8
 
-
+\optionName ExampleCount
+\optionLocalizedName Specify the number of examples required to be displayed for each cluster
+\optionDescription The number of examples would help in deciding the right cluster to be replaced while standardizing all the clusters.
+\optionDefault 10
