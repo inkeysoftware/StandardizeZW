@@ -171,6 +171,7 @@ def examples(bCluster):
 
 formTally = {} # A hash array of hash arrays to tally the frequency count for each form of each combination of consonants
 clusCt = 0
+rootCt = 0
 invalidReport = ""
 
 
@@ -191,6 +192,7 @@ if initialize():
             # clusFile.write(', '.join(examplesList(bestForm)))
             clusFile.write("\r\n")
             clusCt += 1
+            rootCt += 1
             
             # Now write out all remaining forms
             for x in range(1, len(sortedForms)):
@@ -203,7 +205,7 @@ if initialize():
         
 # Report on number of clusters written
 if (clusCt>0):
-    sys.stderr.write(str(clusCt) + " forms of " + str(len(formTally)) + " consonant combinations written to " + clusFilename + "\n")
+    sys.stderr.write(str(clusCt) + " forms of " + str(rootCt) + " consonant combinations written to " + clusFilename + "\n")
     
 # Report on invalid ZW characters, if found
 if (len(invalidReport) > 0):

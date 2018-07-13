@@ -1,0 +1,18 @@
+\check Replace Digits
+\submenu Indic
+\script ReplaceDigits.py
+\description Replace Western digits with Devanagari or other Indic digits, as specified in the options. This will change any digits found in the following fields: \xo, \xt, \fr, \ior, \r. It also changes digits found in the final sub-field of \fig. [Version 0.1]
+\books
+\toList
+\helpFile ReplaceDigits.rtf
+\utf8
+
+\optionName FindDigits
+\optionLocalizedName Specify the ten digits to find
+\optionDefault 0123456789
+
+\optionName ReplaceDigits
+\optionLocalizedName Specify the ten digits to use as replacements
+\optionDefault ०१२३४५६७८९
+
+
