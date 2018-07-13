@@ -8,10 +8,6 @@ import os
 import shutil
 import difflib
 
-
-# Initialization variable
-default = 0
-
 #__________________________________________________________________________________
 # INITIALIZE OTHER CONSONANTS AND VARIABLES:
 
@@ -39,7 +35,7 @@ def initialize():
 # Open file for output, and read all books to tally the frequency of each form of each cons combination.
 # Return true if successful.
 
-    global clusFilename, clusallFilename, invalidReport, formTally, bases, thisVirama, f, clusFile, clusallFile, notVirama, v, virama, listWords, cl, clDict
+    global clusFilename, clusallFilename, invalidReport, formTally, bases, thisVirama, f, clusFile, clusallFile, notVirama, v, virama, listWords, cl
 
     try:
         clusFile = codecs.open(clusFilename, mode='w', encoding='utf-8')
@@ -113,7 +109,6 @@ def examples(bCluster):
 def buildDict():
 
     global  clusallFilename, clusallFile, clDict
-    #clDict = {}
     
     fileread = 0
     try:
@@ -121,64 +116,37 @@ def buildDict():
             clusallFile = codecs.open(clusallFilename, encoding='utf-8')
             allfilecontents = clusallFile.read()
             fileread = 1
-            
+        
     except Exception, e:
         sys.stderr.write("Unable to read or write to file: " + clusallFilename + "\n")
         return 0
     
-    try:  
-        
+    try:    
         if (fileread):   
             
             allfileLines = re.split(r' *[\r\n]+[\s\r\n]*', allfilecontents)   # Split file on newlines (eating any leading or trailing spaces)
-            
+            allfields = re.split(r'\t', allfileLines[0])                      # Split header line on tabs
+            count = 0 
             
             for x in range(1, len(allfileLines)):                          # For each of the remaining lines,
                 allfields = re.split(r' *\t *', allfileLines[x])              # Split line on tabs into fields.
-                #sys.stderr.write(allfields[0])
                 if len(allfields)> 3:
+                    base = allfields[0]
+                    cl = allfields[1]
                     
-                    #Store all clusters in allCluster dictionary
-                    clDict[allfields[0]] = {}
-                    #sys.stderr.write("before creating")
-                    #if allfields[0] in clDict.iterkeys():
-                    #    clDict[allfields[0]].append(fields[1])
-                    #else:   
-                    #clDict[allfields[0]] = fields[1]
-                    for x1 in range(1, len(allfileLines)):
-                        fields1 = re.split(r' *\t *', allfileLines[x1])
-                        #counter = counter + 1
-                        if len(fields1)> 3:
-                            #sys.stderr.write("in for loop clDict" + str(int(counter)))
-                            #if fields1[0] not in clDict.iterkeys():
-                            #sys.stderr.write("in for loop clDict")
-                            if allfields[1]==fields1[1]: 
-                                clDict[allfields[0]][fields1[1]] = fields1[4] + ";" + fields1[5]
-                                #sys.stderr.write("in for loop clDict")
-                    #sys.stderr.write("after assigning")                       
+                    if base not in clDict:
+                        clDict[base] = {}
+                           
+                    clDict[base][cl] = [allfields[4], allfields[6]]
+                                
+            clusallFile.close()
+
     except Exception, e:
         sys.stderr.write("Unable to process all cluster file")
         return 0 # Error
     
-    clusallFile.close()
     
-    return clDict
-    
-def checkExists(bs, findCluster):
-    global clDict
-    # Read the contents of the input file into filecontents
-    
-    if os.path.isfile(clusallFilename):
-        #sys.stderr.write(bs + findCluster)
-        #sys.stderr.write("file exists")
-        if bs in clDict.iterkeys():
-            #sys.stderr.write("keys exist here")
-            if findCluster in clDict[bs].iterkeys:
-                #sys.stderr.write("In here")
-                return 1
-     
-    return 0  
-    
+    return fileread
 
 ##### MAIN PROGRAM #####
 
@@ -186,48 +154,51 @@ formTally = {} # A hash array of hash arrays to tally the frequency count for ea
 clusCt = 0
 invalidReport = ""
 clDict = {}
-checkval = 0
 
 if initialize():
     # Build allclusters dictionary from allclustercorrections file
-    clDict = buildDict()
-        
+    buildDict()
+    
+    
     for base in sorted(formTally.iterkeys()):
+        
         root = re.sub(virama, '', base)
         sortedForms = sorted(formTally[base].iterkeys(), key=lambda a: formTally[base][a], reverse=True) # Sort from most frequent to least
         
         if ExcludeSingle == "No" or len(sortedForms) > 1:
-        
+            
             # First write out best form
             bestForm = sortedForms[0]
             bestFormShow = showAll(bestForm)
-            
-            #for a in sorted(clDict.iterkeys()):
-            #    sys.stderr.write(a)
-            if base in clDict.iterkeys():
-                #sys.stderr.write("in here")
-                if bestForm in clDict[base].iterkeys:
-                    checkval = 1
-                else: 
-                    checkval = 0
-                        
-            if checkval==0:
-                #clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + tamedEglist(bestForm,5)) 
-                # clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t")
+                       
+            if base in clDict and bestForm in clDict[base]:
+                clusFile.write(root + "\t" + bestForm + "\t" + showAll(bestForm) + "\t" + str(int(formTally[base][bestForm])) + "\t" + clDict[base][bestForm][0] + "\t" + showAll(clDict[base][bestForm][0]) + "\t" + (examples(bestForm) if formTally[base][bestForm] else clDict[base][bestForm][1])) 
+                del clDict[base][bestForm]
+            else:   
                 clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + examples(bestForm)) 
-                # clusFile.write(', '.join(examplesList(bestForm)))
-                clusFile.write("\r\n")
+            
+            clusFile.write("\r\n")
                 
+            clusCt += 1
+            
+            # Now write out all remaining forms from sortedForms found in text
+            for x in range(1, len(sortedForms)):
+                thisForm = sortedForms[x]
+                if base in clDict and thisForm in clDict[base]:
+                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t" + clDict[base][thisForm][0] + "\t" + showAll(clDict[base][thisForm][0]) + "\t" + (examples(thisForm) if formTally[base][thisForm] else clDict[base][thisForm][1])) 
+                    del clDict[base][thisForm]
+                    
+                else:     
+                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examples(thisForm)) 
+                clusFile.write("\r\n") 
                 clusCt += 1
                 
-                # Now write out all remaining forms
-                for x in range(1, len(sortedForms)):
-                    # clusFile.write(root + "\t" + sortedForms[x] + "\t" + showAll(sortedForms[x]) + "\t" + str(int(formTally[base][sortedForms[x]])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examplesList(sortedForms[x])) # should return a string
-                    clusFile.write(root + "\t" + sortedForms[x] + "\t" + showAll(sortedForms[x]) + "\t" + str(int(formTally[base][sortedForms[x]])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examples(sortedForms[x])) 
-                    clusFile.write("\r\n") 
-                    clusCt += 1
-                    
-                clusFile.write("\r\n")
+            # Finally, write out any forms that existed in AllCorrections but which no longer exist in the text
+            if base in clDict:
+                for thisForm in clDict[base]:
+                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + "0" + "\t" + clDict[base][thisForm][0] + "\t" + showAll(clDict[base][thisForm][0]) + "\t" + clDict[base][thisForm][1])
+                   
+            clusFile.write("\r\n")
         
 # Report on number of clusters written
 if (clusCt>0):
@@ -235,10 +206,10 @@ if (clusCt>0):
     
 # Report on invalid ZW characters, if found
 if (len(invalidReport) > 0):
-    sys.stderr.write("\nAlso note: Using the STANDARDIZE tool to remove invalid ZW characters will fix this many issues:\n" + invalidReport + "\n")
+    sys.stderr.write(" \nAlso note: Using the STANDARDIZE tool to remove invalid ZW characters will fix this many issues:\n" + invalidReport + "\n")
     
 clusFile.close()
-clusallFile.close()
+
 
 # Copy the XLSX file to the project folder, if available and not already there.
 try:

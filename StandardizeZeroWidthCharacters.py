@@ -35,110 +35,82 @@ def loadFromFile():
 
     global infile, allclinfile, correction, allCluster, alldata, clusallFile, examplemap, dict_items, clDict
     
-    # Read the contents of the input file into filecontents
-    try:
-        f = codecs.open(infile, encoding='utf-8')
-        filecontents = f.read()
-    except Exception, e:
-        sys.stderr.write("Unable to open file: " + infile + "\nPlease create this file using the Analyze Zero-Width Characters tool.")
-        return 0
-
-    try:
-        # Build allclusters dictionary from allclustercorrections file
-        clDict = buildDict()
-        
-        # Parse the filecontents of clustercorrections to get cluster mappings    
-        fileLines = re.split(r' *[\r\n]+[\s\r\n]*', filecontents)   # Split file on newlines (eating any leading or trailing spaces)
-        fields = re.split(r'\t', fileLines[0])                      # Split header line on tabs
-        if fields[1] != 'Cluster' or fields[4] != "Correct":        # Make sure the headers match what we're expecting
-            sys.stderr.write("Unexpected format in file: " + infile + "\nPlease re-create this file using the Analyze Zero-Width Characters tool.")
-            return 0
-        
-        for x in range(1, len(fileLines)):                          # For each of the remaining lines,
-           
-            fields = re.split(r' *\t *', fileLines[x])              # Split line on tabs into fields.
-            
-            # Read Clustercorrection file and store all clusters in allCluster dictionary - start
-            allCluster[fields[0]]={}
-            if len(fields) > 3:
-                for eachLine in range(1, len(fileLines)):
-                    columns = re.split(r' *\t *', fileLines[eachLine])
-                    if columns[0]==fields[0]: 
-                        allCluster[fields[0]][columns[1]] = columns[4] + ";" + columns[6]  
-                        
-            # Store all cluster in allCluster dictionary - ends  
-            
-                if len(fields) >= 5 and re.match(r'[\p{L}\p{M}\p{Cf}]+$', fields[4]):   # If there is a replacement field (consisting only of word-forming characters)
-                    if re.sub(u'[\u200c\u200d]', '', fields[1]) == re.sub(u'[\u200c\u200d]', '', fields[4]):    # If cluster and its replacement differ only by ZW characters
-                        correction[fields[1]] = fields[4]                                                       # map the invalid cluster to its replacement.
-                    else:
-                        sys.stderr.write("Ignoring excessive correction of " + repr(fields[1]) + " to " + repr(fields[4]) + "\n") # This tool must only make ZW changes!
     
+    ''' Dan wrote psuedologic
+    if fileexists(allclinfile):
+        read lines into dictionary  correction[col[2]] = col[4]
+        clDict[base][thisForm] = whole line
         
-    except Exception, e:
-        sys.stderr.write("Error reading file: " + infile + "\n")
-        return 0 # Error
+    if fileexists(infile):
+        read lines into dictionary  correction[col[2]] = col[4]
+        clDict[base][thisForm] = whole line
+        
+    write out to allciinfile from clDict
+    delete
+    '''
+    # Read contents of AllClusterCorrections into Corrections and write into clDict
+    buildDict(allclinfile)
+     
+    # Read the contents of the input file into filecontents
+    buildDict(infile)
+    
+    return 1    
+    
+    
+def buildDict(filename):
 
-    return 1    # Success
-
-def buildDict():
-
-    global  allclinfile, clusallFile, clDict
-    #clDict = {}
-
+    global  clusallFile, clDict, correction
+    
     fileread = 0
     try:
-        if os.path.isfile(allclinfile):
-            clusallFile = codecs.open(allclinfile, encoding='utf-8')
+        if os.path.isfile(filename):
+            clusallFile = codecs.open(filename, encoding='utf-8')
             allfilecontents = clusallFile.read()
             fileread = 1
-        #else:
-            #clusallFile = codecs.open(allclinfile, encoding='utf-8')
-            #clusallFile.write(u'\uFEFFRoot\tCluster\tClusterShow\tCorrect\tCorrectShow\tExamples\r\n') # BOM and column headings
-            #fileread = 0
+        
     except Exception, e:
-        sys.stderr.write("Unable to read or write to file: " + allclinfile + "\n")
+        sys.stderr.write("Unable to read or write to file: " + filename + "\n")
         return 0
     
-    try:    
+    try:   
+       
         if (fileread):   
             
             allfileLines = re.split(r' *[\r\n]+[\s\r\n]*', allfilecontents)   # Split file on newlines (eating any leading or trailing spaces)
             allfields = re.split(r'\t', allfileLines[0])                      # Split header line on tabs
-            count = 0 
+            
+            if allfields[1] != 'Cluster' or allfields[4] != "Correct":        # Make sure the headers match what we're expecting
+                sys.stderr.write("Unexpected format in file: " + filename + "\nPlease re-create this file using the Analyze Zero-Width Characters tool.")
+                return 0
             
             for x in range(1, len(allfileLines)):                          # For each of the remaining lines,
                 allfields = re.split(r' *\t *', allfileLines[x])              # Split line on tabs into fields.
-                if len(allfields)> 3:
-                    #sys.stderr.write("in for loop clDict" + str(int(count)))
-                    #Store all clusters in allCluster dictionary
-                    clDict[allfields[0]] = {}
-                    count = count + 1
-                    counter = 0
-                    for x1 in range(1, len(allfileLines)):
-                        fields1 = re.split(r' *\t *', allfileLines[x1])
-                        counter = counter + 1
-                        if len(fields1)> 3:
-                            #sys.stderr.write("in for loop clDict" + str(int(counter)))
-                            #if fields1[0] not in clDict.iterkeys():
-                            #sys.stderr.write("in for loop clDict")
-                            if allfields[1]==fields1[1]: 
-                                clDict[allfields[0]][fields1[1]] = fields1[4] + ";" + fields1[5]
-                                
-                                if len(fields1) >= 4 and re.match(r'[\p{L}\p{M}\p{Cf}]+$', fields1[3]):   # If there is a replacement field (consisting only of word-forming characters)
-                                    if re.sub(u'[\u200c\u200d]', '', fields1[1]) == re.sub(u'[\u200c\u200d]', '', fields1[3]):    # If cluster and its replacement differ only by ZW characters
-                                        correction[fields1[1]] = fields1[3]                                                       # map the invalid cluster to its replacement.
-                                        
-                                    else:
-                                        sys.stderr.write("Ignoring excessive correction of " + repr(fields1[1]) + " to " + repr(fields1[3]) + "\n") # This tool must only make ZW changes!
                 
+                if len(allfields)>=3:
+                    base = allfields[0]
+                    cl = allfields[1]
+                    
+                    if base not in clDict:
+                        clDict[base] = {}
+                           
+                    clDict[base][cl] = allfileLines[x]
+                
+                    if len(allfields) >= 5 and re.match(r'[\p{L}\p{M}\p{Cf}]+$', allfields[4]):   # If there is a replacement field (consisting only of word-forming characters)
+                        if re.sub(u'[\u200c\u200d]', '', allfields[1]) == re.sub(u'[\u200c\u200d]', '', allfields[4]):    # If cluster and its replacement differ only by ZW characters
+                            correction[allfields[1]] = allfields[4]                                                       # map the invalid cluster to its replacement.
+                        else:
+                            sys.stderr.write("Ignoring excessive correction of " + repr(allfields[1]) + " to " + repr(allfields[4]) + "\n") # This tool must only make ZW changes!
+            
+            clusallFile.close()
+
     except Exception, e:
-        sys.stderr.write("Unable to process all cluster file")
+        sys.stderr.write("Unable to process cluster file" + filename + "\n")
         return 0 # Error
     
-    clusallFile.close()
     
-    return clDict
+    return fileread
+    
+
 #__________________________________________________________________________________
 def prefCluster(matchobj):
 # Provides the standardized replacement wherever a cluster pattern has been matched.
@@ -194,51 +166,32 @@ def makeChanges(fileContents, bookName):
 # Write into the Allclustercorrections file
 def writetoFile():
 
-    global clusallFile, clDict, allCluster
-    #sys.stderr.write("in writetofile")
+    global clusallFile, clDict, allCluster, allclinfile
+  
     try:
-        if os.path.isfile(allclinfile):
-            clusallFile = codecs.open(allclinfile, mode='a', encoding='utf-8')
-            fileexists=1
-        else:
-            clusallFile = codecs.open(allclinfile, mode='w', encoding='utf-8')
-            clusallFile.write(u'\uFEFFRoot\tCluster\tClusterShow\tCorrect\tCorrectShow\tExamples\r\n') # BOM and column headings
-            fileexists=0
+        clusallFile = codecs.open(allclinfile, mode='w', encoding='utf-8')
+        clusallFile.write(u'\uFEFFRoot\tCluster\tClusterShow\tCount\tCorrect\tCorrectShow\tExamples\r\n') # BOM and column headings
+                   
     except Exception, e:
-        sys.stderr.write("Unable to append or write to file: " + allclinfile + "\n")
+        sys.stderr.write("Unable to write to file:" + allclinfile + "\n")
         return 0
+     
+    try: 
+        for base in sorted(clDict.iterkeys()):
+            for eachcluster in sorted(clDict[base]):
+                if base in clDict and eachcluster in clDict[base]:
+                    clusallFile.write(clDict[base][eachcluster])
+                    clusallFile.write("\r\n")
+                    
+            clusallFile.write("\r\n")
+        clusallFile.close()   
     
-    for cl in sorted(allCluster.iterkeys()):
+    except Exception, e:
+        sys.stderr.write(allclinfile)
+        return 0 # Error
         
-        for eachCluster in sorted(allCluster[cl].iterkeys()):
-            found = 0
-            cols = re.split(";", allCluster[cl][eachCluster])
-            bestForm = cols[0]
-            bestFormShow = showAll(cols[0])
-            examples = cols[1]
-            
-            if fileexists:
-                if cl in sorted(clDict.keys()):
-                    sys.stderr.write("\nIm found in base" + cl + eachCluster)
-                    if eachCluster in sorted(clDict[cl].keys()):
-                        found = 1
-                        sys.stderr.write(eachCluster + ":the cluster exists in allclustercorrections\n") #till here
-                '''
-                for eachCl in sorted(clDict.iterkeys()):
-                    if (clDict[eachCl].iterkeys()):
-                        for x1 in sorted(clDict[eachCl].iterkeys()):
-                            sys.stderr.write(eachCluster)
-                            sys.stderr.write(x1)
-                            if eachCluster==x1:
-                                found = 1
-                    '''   
-                    #if cl == eachCl:
-                    #    found = 1
-            if found==0:
-                clusallFile.write(cl + "\t" + eachCluster + "\t" + showAll(eachCluster) +   "\t" +  bestForm +  "\t" + bestFormShow + "\t" + examples ) 
-                clusallFile.write("\r\n")
-                
-        clusallFile.write("\r\n")
+    
+        
       
     return 1
     
@@ -255,7 +208,6 @@ else:
 
 correction = {}             # Maps from an invalid form of a cluster to its correction
 allCluster = {}             # store all valid and invalid cluster combinations
-alldata = {}
 clDict = {}
 totBadChanges = 0           # tally of Phase 1 changes across all books
 totStdChanges = 0           # tally of Phase 2 changes across all books
@@ -310,7 +262,7 @@ for otherFile in otherFiles:
             sys.stderr.write("Unable to write to file: " + xmlfile + "\n")
             continue
 
-clusallFile.close()
+#clusallFile.close()
    
 # Show the user the total tally of changes
 sys.stderr.write("\n\n" + str(totBadChanges) + "\ttotal invalid ZW characters removed.\n" + str(totStdChanges) + "\tclusters standardized.")
