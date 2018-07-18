@@ -171,13 +171,13 @@ if initialize():
             # First write out best form
             bestForm = sortedForms[0]
             bestFormShow = showAll(bestForm)
-            correct = bestForm
-            correctShow = bestFormShow
+            #correct = bestForm
+            #correctShow = bestFormShow
             if root in clDict and bestForm in clDict[root]:
                 
                 clusFile.write(root + "\t" + bestForm + "\t" + showAll(bestForm) + "\t" + str(int(formTally[base][bestForm])) + "\t" + clDict[root][bestForm][0] + "\t" + showAll(clDict[root][bestForm][0]) + "\t" + (examples(bestForm) if formTally[base][bestForm] else clDict[root][bestForm][1])) 
-                correct = clDict[root][bestForm][0] 
-                correctShow = showAll(clDict[root][bestForm][0])
+                #correct = clDict[root][bestForm][0] 
+                #correctShow = showAll(clDict[root][bestForm][0])
                 del clDict[root][bestForm]
             else:   
                 clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + examples(bestForm)) 
@@ -197,7 +197,7 @@ if initialize():
                     del clDict[root][thisForm]
                     
                 else:     
-                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t" + correct + "\t" + correctShow + "\t" + examples(thisForm)) 
+                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examples(thisForm)) 
                 clusFile.write("\r\n") 
                 clusCt += 1
                 
