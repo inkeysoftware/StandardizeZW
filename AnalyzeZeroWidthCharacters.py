@@ -47,6 +47,10 @@ def initialize():
     
           
     try:
+        
+        # Build allclusters dictionary from allclustercorrections file, if it exists
+        buildDict()
+    
         scr = ScriptureText(Project)     # Open input project
          
         listWords = {}
@@ -138,7 +142,7 @@ def buildDict():
                         clDict[base] = {}
                            
                     clDict[base][cl] = [allfields[4], allfields[6]]
-                                
+                              
             clusallFile.close()
 
     except Exception, e:
@@ -156,9 +160,6 @@ invalidReport = ""
 clDict = {}
 
 if initialize():
-    # Build allclusters dictionary from allclustercorrections file
-    buildDict()
-    
     
     for base in sorted(formTally.iterkeys()):
         
@@ -170,10 +171,14 @@ if initialize():
             # First write out best form
             bestForm = sortedForms[0]
             bestFormShow = showAll(bestForm)
-                       
-            if base in clDict and bestForm in clDict[base]:
-                clusFile.write(root + "\t" + bestForm + "\t" + showAll(bestForm) + "\t" + str(int(formTally[base][bestForm])) + "\t" + clDict[base][bestForm][0] + "\t" + showAll(clDict[base][bestForm][0]) + "\t" + (examples(bestForm) if formTally[base][bestForm] else clDict[base][bestForm][1])) 
-                del clDict[base][bestForm]
+            correct = bestForm
+            correctShow = bestFormShow
+            if root in clDict and bestForm in clDict[root]:
+                
+                clusFile.write(root + "\t" + bestForm + "\t" + showAll(bestForm) + "\t" + str(int(formTally[base][bestForm])) + "\t" + clDict[root][bestForm][0] + "\t" + showAll(clDict[root][bestForm][0]) + "\t" + (examples(bestForm) if formTally[base][bestForm] else clDict[root][bestForm][1])) 
+                correct = clDict[root][bestForm][0] 
+                correctShow = showAll(clDict[root][bestForm][0])
+                del clDict[root][bestForm]
             else:   
                 clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + examples(bestForm)) 
             
@@ -184,22 +189,28 @@ if initialize():
             # Now write out all remaining forms from sortedForms found in text
             for x in range(1, len(sortedForms)):
                 thisForm = sortedForms[x]
-                if base in clDict and thisForm in clDict[base]:
-                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t" + clDict[base][thisForm][0] + "\t" + showAll(clDict[base][thisForm][0]) + "\t" + (examples(thisForm) if formTally[base][thisForm] else clDict[base][thisForm][1])) 
-                    del clDict[base][thisForm]
+               
+                if root in clDict and thisForm in clDict[root]:
+                   
+                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t" + clDict[root][thisForm][0] + "\t" + showAll(clDict[root][thisForm][0]) + "\t" + (examples(thisForm) if formTally[base][thisForm] else clDict[root][thisForm][1])) 
+                    
+                    del clDict[root][thisForm]
                     
                 else:     
-                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examples(thisForm)) 
+                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t" + correct + "\t" + correctShow + "\t" + examples(thisForm)) 
                 clusFile.write("\r\n") 
                 clusCt += 1
                 
             # Finally, write out any forms that existed in AllCorrections but which no longer exist in the text
-            if base in clDict:
-                for thisForm in clDict[base]:
-                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + "0" + "\t" + clDict[base][thisForm][0] + "\t" + showAll(clDict[base][thisForm][0]) + "\t" + clDict[base][thisForm][1])
-                   
+            if root in clDict:
+                for thisForm in clDict[root]:
+                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + "0" + "\t" + clDict[root][thisForm][0] + "\t" + showAll(clDict[root][thisForm][0]) + "\t" + clDict[root][thisForm][1])
+                    clusFile.write("\r\n")
+                    
             clusFile.write("\r\n")
-        
+
+clusFile.close()
+            
 # Report on number of clusters written
 if (clusCt>0):
     sys.stderr.write(str(clusCt) + " forms of " + str(len(formTally)) + " consonant combinations written to " + clusFilename + "\n")
@@ -208,7 +219,7 @@ if (clusCt>0):
 if (len(invalidReport) > 0):
     sys.stderr.write(" \nAlso note: Using the STANDARDIZE tool to remove invalid ZW characters will fix this many issues:\n" + invalidReport + "\n")
     
-clusFile.close()
+
 
 
 # Copy the XLSX file to the project folder, if available and not already there.
