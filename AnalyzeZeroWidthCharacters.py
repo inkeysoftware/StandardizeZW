@@ -35,7 +35,7 @@ def initialize():
 # Open file for output, and read all books to tally the frequency of each form of each cons combination.
 # Return true if successful.
 
-    global clusFilename, clusallFilename, invalidReport, formTally, bases, thisVirama, f, clusFile, clusallFile, notVirama, v, virama, listWords, cl
+    global clusFilename, clusallFilename, invalidReport, formTally, thisVirama, f, clusFile, clusallFile, notVirama, v, virama, listWords, cl, clDict, check
 
     try:
         clusFile = codecs.open(clusFilename, mode='w', encoding='utf-8')
@@ -49,12 +49,11 @@ def initialize():
     try:
         
         # Build allclusters dictionary from allclustercorrections file, if it exists
-        buildDict()
-    
+        check = buildDict()
+      
         scr = ScriptureText(Project)     # Open input project
          
         listWords = {}
-        
                 
         for reference, text in scr.allBooks(Books):  
         
@@ -77,22 +76,25 @@ def initialize():
                             listWords[cl].append(example) 
                 
                     # Count occurrences of each form of each cluster
-                    base = re.sub(zw, '', cl)       # The base form is the simple stacked form
-                   
-                    if base in formTally:
-                        if cl in formTally[base]:
-                            formTally[base][cl] += 1
+                    base = re.sub(zw, '', cl)       # The base form is a simple stack form
+                    root = re.sub(virama, '', base) # The root form is just the constanants without virama or zero-width.
+                    
+                    if root in formTally:
+                        if cl in formTally[root]:
+                            formTally[root][cl] += 1
                         else:
-                            formTally[base][cl] = weightedCt(cl, base)
+                            formTally[root][cl] = weightedCt(cl, base)
                     else:
-                        formTally[base] = {cl : weightedCt(cl, base)}
-                        
+                        formTally[root] = {cl : weightedCt(cl, base)}
+        
     except Exception, e:
         sys.stderr.write("Error looping through Scripture books.")
         return 0
     
-    return 1    
+    
 
+    return 1
+    
 def examples(bCluster):
     global listWords      
     global ExampleCount
@@ -135,13 +137,12 @@ def buildDict():
             for x in range(1, len(allfileLines)):                          # For each of the remaining lines,
                 allfields = re.split(r' *\t *', allfileLines[x])              # Split line on tabs into fields.
                 if len(allfields)> 3:
-                    base = allfields[0]
+                    root = allfields[0]
                     cl = allfields[1]
-                    
-                    if base not in clDict:
-                        clDict[base] = {}
+                    if root not in clDict:
+                        clDict[root] = {}
                            
-                    clDict[base][cl] = [allfields[4], allfields[6]]
+                    clDict[root][cl] = [allfields[4], allfields[6]]
                               
             clusallFile.close()
 
@@ -152,37 +153,60 @@ def buildDict():
     
     return fileread
 
+
+   
 ##### MAIN PROGRAM #####
 
 formTally = {} # A hash array of hash arrays to tally the frequency count for each form of each combination of consonants
 clusCt = 0
 invalidReport = ""
-clDict = {}
+clDict = {} # Dictionary to store from Allclustercorrections file
+
+clusString = []
 
 if initialize():
+
+    if os.path.isfile(clusallFilename):
+        clusallFile = codecs.open(clusallFilename, mode='w', encoding='utf-8')
+        clusallFile.write(u'\uFEFFRoot\tCluster\tClusterShow\tCount\tCorrect\tCorrectShow\tExamples\r\n') # BOM and column headings
     
-    for base in sorted(formTally.iterkeys()):
+        for root in sorted(clDict.iterkeys()):
+            for eachcluster in sorted(clDict[root]):
+                if root in formTally and eachcluster in formTally[root]:
+                    clusallFile.write(root + "\t" + eachcluster + "\t" + showAll(eachcluster) + "\t" + str(int(formTally[root][eachcluster])) + "\t" + clDict[root][eachcluster][0] + "\t" + showAll(clDict[root][eachcluster][0]) + "\t" + examples(eachcluster))
+                else:
+                    clusallFile.write(root + "\t" + eachcluster + "\t" + showAll(eachcluster) + "\t" + "0" + "\t" + clDict[root][eachcluster][0] + "\t" + showAll(clDict[root][eachcluster][0]) + "\t" + clDict[root][eachcluster][1])
+                clusallFile.write("\r\n")
+            clusallFile.write("\r\n")   
+        clusallFile.close()
         
-        root = re.sub(virama, '', base)
-        sortedForms = sorted(formTally[base].iterkeys(), key=lambda a: formTally[base][a], reverse=True) # Sort from most frequent to least
+    for root in sorted(formTally.iterkeys()):
+        oldRules = {}
+        #root = re.sub(virama, '', base)
+        sortedForms = sorted(formTally[root].iterkeys(), key=lambda a: formTally[root][a], reverse=True) # Sort from most frequent to least
         
         if ExcludeSingle == "No" or len(sortedForms) > 1:
+           
+            if root in clDict:
+                for oldkeys in clDict[root].iterkeys():
+                    oldRules[oldkeys] = clDict[root][oldkeys][0]
+            newRules = {}
             
             # First write out best form
             bestForm = sortedForms[0]
             bestFormShow = showAll(bestForm)
-            #correct = bestForm
-            #correctShow = bestFormShow
+            
             if root in clDict and bestForm in clDict[root]:
                 
-                clusFile.write(root + "\t" + bestForm + "\t" + showAll(bestForm) + "\t" + str(int(formTally[base][bestForm])) + "\t" + clDict[root][bestForm][0] + "\t" + showAll(clDict[root][bestForm][0]) + "\t" + (examples(bestForm) if formTally[base][bestForm] else clDict[root][bestForm][1])) 
-                #correct = clDict[root][bestForm][0] 
-                #correctShow = showAll(clDict[root][bestForm][0])
+                clusString = [root + "\t" + bestForm + "\t" + showAll(bestForm) + "\t" + str(int(formTally[root][bestForm])) + "\t" + clDict[root][bestForm][0] + "\t" + showAll(clDict[root][bestForm][0]) + "\t" + (examples(bestForm) if formTally[root][bestForm] else clDict[root][bestForm][1])]
+                newRules[bestForm] = clDict[root][bestForm][0]
                 del clDict[root][bestForm]
+                
             else:   
-                clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + examples(bestForm)) 
+                clusString = [root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[root][bestForm])) + "\t" + "\t" + "\t" + examples(bestForm)]
+                newRules[bestForm] = ""
             
-            clusFile.write("\r\n")
+            clusString.append("\r\n")
                 
             clusCt += 1
             
@@ -192,25 +216,34 @@ if initialize():
                
                 if root in clDict and thisForm in clDict[root]:
                    
-                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t" + clDict[root][thisForm][0] + "\t" + showAll(clDict[root][thisForm][0]) + "\t" + (examples(thisForm) if formTally[base][thisForm] else clDict[root][thisForm][1])) 
-                    
+                    clusString.append(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[root][thisForm])) + "\t" + clDict[root][thisForm][0] + "\t" + showAll(clDict[root][thisForm][0]) + "\t" + (examples(thisForm) if formTally[root][thisForm] else clDict[root][thisForm][1])) 
+                    newRules[thisForm] = clDict[root][thisForm][0]
                     del clDict[root][thisForm]
                     
                 else:     
-                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examples(thisForm)) 
-                clusFile.write("\r\n") 
+                    clusString.append(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[root][thisForm])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examples(thisForm))
+                    newRules[thisForm] = bestForm
+                clusString.append("\r\n") 
                 clusCt += 1
                 
             # Finally, write out any forms that existed in AllCorrections but which no longer exist in the text
             if root in clDict:
                 for thisForm in clDict[root]:
-                    clusFile.write(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + "0" + "\t" + clDict[root][thisForm][0] + "\t" + showAll(clDict[root][thisForm][0]) + "\t" + clDict[root][thisForm][1])
-                    clusFile.write("\r\n")
                     
-            clusFile.write("\r\n")
-
-clusFile.close()
+                    clusString.append(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + "0" + "\t" + clDict[root][thisForm][0] + "\t" + showAll(clDict[root][thisForm][0]) + "\t" + clDict[root][thisForm][1])
+                    clusString.append("\r\n")
+                    newRules[thisForm] = clDict[root][thisForm][0]
+                   
+            clusString.append("\r\n")
             
+            # Write to file if the oldRules in Allclustercorrections doesn't match with the new rules.
+            if newRules != oldRules:
+                for lineItem in clusString:
+                    clusFile.write(lineItem)
+    
+clusFile.close()
+
+        
 # Report on number of clusters written
 if (clusCt>0):
     sys.stderr.write(str(clusCt) + " forms of " + str(len(formTally)) + " consonant combinations written to " + clusFilename + "\n")
@@ -219,8 +252,6 @@ if (clusCt>0):
 if (len(invalidReport) > 0):
     sys.stderr.write(" \nAlso note: Using the STANDARDIZE tool to remove invalid ZW characters will fix this many issues:\n" + invalidReport + "\n")
     
-
-
 
 # Copy the XLSX file to the project folder, if available and not already there.
 try:

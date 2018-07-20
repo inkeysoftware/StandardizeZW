@@ -35,19 +35,6 @@ def loadFromFile():
 
     global infile, allclinfile, correction, allCluster, alldata, clusallFile, examplemap, dict_items, clDict
     
-    
-    ''' Dan wrote psuedologic
-    if fileexists(allclinfile):
-        read lines into dictionary  correction[col[2]] = col[4]
-        clDict[base][thisForm] = whole line
-        
-    if fileexists(infile):
-        read lines into dictionary  correction[col[2]] = col[4]
-        clDict[base][thisForm] = whole line
-        
-    write out to allciinfile from clDict
-    delete
-    '''
     # Read contents of AllClusterCorrections into Corrections and write into clDict
     buildDict(allclinfile)
      
@@ -83,7 +70,7 @@ def buildDict(filename):
                 sys.stderr.write("Unexpected format in file: " + filename + "\nPlease re-create this file using the Analyze Zero-Width Characters tool.")
                 return 0
             
-            for x in range(1, len(allfileLines)):                          # For each of the remaining lines,
+            for x in range(1, len(allfileLines)):                             # For each of the remaining lines,
                 allfields = re.split(r' *\t *', allfileLines[x])              # Split line on tabs into fields.
                 
                 if len(allfields)>=3:
@@ -177,10 +164,12 @@ def writetoFile():
         return 0
      
     try: 
-        for base in sorted(clDict.iterkeys()):
-            for eachcluster in sorted(clDict[base]):
-                if base in clDict and eachcluster in clDict[base]:
-                    clusallFile.write(clDict[base][eachcluster])
+        for root in sorted(clDict.iterkeys()):
+            for eachcluster in sorted(clDict[root]):
+                if root in clDict and eachcluster in clDict[root]:
+                    cols = re.split(r'\t', clDict[root][eachcluster])
+                    
+                    clusallFile.write(cols[0] + "\t" + cols[1] + "\t" + cols[2] + "\t" + cols[3] + "\t" + cols[4] + "\t" + showAll(cols[4]) + "\t" + cols[6])
                     clusallFile.write("\r\n")
                     
             clusallFile.write("\r\n")
