@@ -35,7 +35,7 @@ def initialize():
 # Open file for output, and read all books to tally the frequency of each form of each cons combination.
 # Return true if successful.
 
-    global clusFilename, clusallFilename, invalidReport, formTally, thisVirama, f, clusFile, clusallFile, notVirama, v, virama, listWords, cl, clDict, check
+    global clusFilename, clusallFilename, invalidReport, formTally, thisVirama, f, clusFile, clusallFile, notVirama, v, virama, listWords, cl, clDict
 
     try:
         clusFile = codecs.open(clusFilename, mode='w', encoding='utf-8')
@@ -49,7 +49,7 @@ def initialize():
     try:
         
         # Build allclusters dictionary from allclustercorrections file, if it exists
-        check = buildDict()
+        buildDict()
       
         scr = ScriptureText(Project)     # Open input project
          
@@ -77,15 +77,15 @@ def initialize():
                 
                     # Count occurrences of each form of each cluster
                     base = re.sub(zw, '', cl)       # The base form is a simple stack form
-                    root = re.sub(virama, '', base) # The root form is just the constanants without virama or zero-width.
+                    #root = re.sub(virama, '', base) # The root form is just the constanants without virama or zero-width.
                     
-                    if root in formTally:
-                        if cl in formTally[root]:
-                            formTally[root][cl] += 1
+                    if base in formTally:
+                        if cl in formTally[base]:
+                            formTally[base][cl] += 1
                         else:
-                            formTally[root][cl] = weightedCt(cl, base)
+                            formTally[base][cl] = weightedCt(cl, base)
                     else:
-                        formTally[root] = {cl : weightedCt(cl, base)}
+                        formTally[base] = {cl : weightedCt(cl, base)}
         
     except Exception, e:
         sys.stderr.write("Error looping through Scripture books.")
@@ -137,12 +137,12 @@ def buildDict():
             for x in range(1, len(allfileLines)):                          # For each of the remaining lines,
                 allfields = re.split(r' *\t *', allfileLines[x])              # Split line on tabs into fields.
                 if len(allfields)> 3:
-                    root = allfields[0]
+                    base = re.sub(zw, '', allfields[1])
                     cl = allfields[1]
-                    if root not in clDict:
-                        clDict[root] = {}
+                    if base not in clDict:
+                        clDict[base] = {}
                            
-                    clDict[root][cl] = [allfields[4], allfields[6]]
+                    clDict[base][cl] = [allfields[4], allfields[6]]
                               
             clusallFile.close()
 
@@ -170,40 +170,40 @@ if initialize():
         clusallFile = codecs.open(clusallFilename, mode='w', encoding='utf-8')
         clusallFile.write(u'\uFEFFRoot\tCluster\tClusterShow\tCount\tCorrect\tCorrectShow\tExamples\r\n') # BOM and column headings
     
-        for root in sorted(clDict.iterkeys()):
-            for eachcluster in sorted(clDict[root]):
-                if root in formTally and eachcluster in formTally[root]:
-                    clusallFile.write(root + "\t" + eachcluster + "\t" + showAll(eachcluster) + "\t" + str(int(formTally[root][eachcluster])) + "\t" + clDict[root][eachcluster][0] + "\t" + showAll(clDict[root][eachcluster][0]) + "\t" + examples(eachcluster))
+        for base in sorted(clDict.iterkeys()):
+            for eachcluster in sorted(clDict[base]):
+                if base in formTally and eachcluster in formTally[base]:
+                    clusallFile.write(base + "\t" + eachcluster + "\t" + showAll(eachcluster) + "\t" + str(int(formTally[base][eachcluster])) + "\t" + clDict[base][eachcluster][0] + "\t" + showAll(clDict[base][eachcluster][0]) + "\t" + examples(eachcluster))
                 else:
-                    clusallFile.write(root + "\t" + eachcluster + "\t" + showAll(eachcluster) + "\t" + "0" + "\t" + clDict[root][eachcluster][0] + "\t" + showAll(clDict[root][eachcluster][0]) + "\t" + clDict[root][eachcluster][1])
+                    clusallFile.write(base + "\t" + eachcluster + "\t" + showAll(eachcluster) + "\t" + "0" + "\t" + clDict[base][eachcluster][0] + "\t" + showAll(clDict[base][eachcluster][0]) + "\t" + clDict[base][eachcluster][1])
                 clusallFile.write("\r\n")
             clusallFile.write("\r\n")   
         clusallFile.close()
         
-    for root in sorted(formTally.iterkeys()):
+    for base in sorted(formTally.iterkeys()):
         oldRules = {}
-        #root = re.sub(virama, '', base)
-        sortedForms = sorted(formTally[root].iterkeys(), key=lambda a: formTally[root][a], reverse=True) # Sort from most frequent to least
+        root = re.sub(virama, '', base)
+        sortedForms = sorted(formTally[base].iterkeys(), key=lambda a: formTally[base][a], reverse=True) # Sort from most frequent to least
         
         if ExcludeSingle == "No" or len(sortedForms) > 1:
            
-            if root in clDict:
-                for oldkeys in clDict[root].iterkeys():
-                    oldRules[oldkeys] = clDict[root][oldkeys][0]
+            if base in clDict:
+                for oldkeys in clDict[base].iterkeys():
+                    oldRules[oldkeys] = clDict[base][oldkeys][0]
             newRules = {}
             
             # First write out best form
             bestForm = sortedForms[0]
             bestFormShow = showAll(bestForm)
             
-            if root in clDict and bestForm in clDict[root]:
+            if base in clDict and bestForm in clDict[base]:
                 
-                clusString = [root + "\t" + bestForm + "\t" + showAll(bestForm) + "\t" + str(int(formTally[root][bestForm])) + "\t" + clDict[root][bestForm][0] + "\t" + showAll(clDict[root][bestForm][0]) + "\t" + (examples(bestForm) if formTally[root][bestForm] else clDict[root][bestForm][1])]
-                newRules[bestForm] = clDict[root][bestForm][0]
-                del clDict[root][bestForm]
+                clusString = [root + "\t" + bestForm + "\t" + showAll(bestForm) + "\t" + str(int(formTally[base][bestForm])) + "\t" + clDict[base][bestForm][0] + "\t" + showAll(clDict[base][bestForm][0]) + "\t" + (examples(bestForm) if formTally[base][bestForm] else clDict[base][bestForm][1])]
+                newRules[bestForm] = clDict[base][bestForm][0]
+                del clDict[base][bestForm]
                 
             else:   
-                clusString = [root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[root][bestForm])) + "\t" + "\t" + "\t" + examples(bestForm)]
+                clusString = [root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + examples(bestForm)]
                 newRules[bestForm] = ""
             
             clusString.append("\r\n")
@@ -214,25 +214,25 @@ if initialize():
             for x in range(1, len(sortedForms)):
                 thisForm = sortedForms[x]
                
-                if root in clDict and thisForm in clDict[root]:
+                if base in clDict and thisForm in clDict[base]:
                    
-                    clusString.append(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[root][thisForm])) + "\t" + clDict[root][thisForm][0] + "\t" + showAll(clDict[root][thisForm][0]) + "\t" + (examples(thisForm) if formTally[root][thisForm] else clDict[root][thisForm][1])) 
-                    newRules[thisForm] = clDict[root][thisForm][0]
-                    del clDict[root][thisForm]
+                    clusString.append(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t" + clDict[base][thisForm][0] + "\t" + showAll(clDict[base][thisForm][0]) + "\t" + (examples(thisForm) if formTally[base][thisForm] else clDict[base][thisForm][1])) 
+                    newRules[thisForm] = clDict[base][thisForm][0]
+                    del clDict[base][thisForm]
                     
                 else:     
-                    clusString.append(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[root][thisForm])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examples(thisForm))
+                    clusString.append(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examples(thisForm))
                     newRules[thisForm] = bestForm
                 clusString.append("\r\n") 
                 clusCt += 1
                 
             # Finally, write out any forms that existed in AllCorrections but which no longer exist in the text
-            if root in clDict:
-                for thisForm in clDict[root]:
+            if base in clDict:
+                for thisForm in clDict[base]:
                     
-                    clusString.append(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + "0" + "\t" + clDict[root][thisForm][0] + "\t" + showAll(clDict[root][thisForm][0]) + "\t" + clDict[root][thisForm][1])
+                    clusString.append(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + "0" + "\t" + clDict[base][thisForm][0] + "\t" + showAll(clDict[base][thisForm][0]) + "\t" + clDict[base][thisForm][1])
                     clusString.append("\r\n")
-                    newRules[thisForm] = clDict[root][thisForm][0]
+                    newRules[thisForm] = clDict[base][thisForm][0]
                    
             clusString.append("\r\n")
             
