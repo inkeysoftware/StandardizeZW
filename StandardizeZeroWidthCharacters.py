@@ -8,7 +8,7 @@ import glob, os
 import shutil
 
 # StandardizeZeroWidthCharacters 
-# VERSION 0.5
+# VERSION 0.7
 # See accompanying Help file for purpose and usage.
 
 # Phase 1: Removes ZWNJ/ZWJ found in invalid positions.
