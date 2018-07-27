@@ -1,4 +1,5 @@
 # Commonzwc.py
+
 import re
 #__________________________________________________________________________________
 # INITIALIZE CONSTANTS WITH REGEX STRINGS:
@@ -72,3 +73,4 @@ def countChanges(aStr, bStr):
 def showAll(s):
 # Return a version of the string that shows [zwj] and [zwnj] in place of invisible characters
     return re.sub(u'\u200c', '[zwnj]', re.sub(u'\u200d', '[zwj]', s))
+

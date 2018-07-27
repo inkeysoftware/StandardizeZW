@@ -50,6 +50,7 @@ def initialize():
         sys.stderr.write("Unable to write to file: " + clusFilename + "\n")
         return 0
     
+
           
     try:
         
@@ -246,4 +247,5 @@ try:
     if os.path.isfile(xl1) and not os.path.isfile(xl2):
         shutil.copyfile(xl1, xl2)
 except Exception, e:
+
     sys.stderr.write("Did not copy xlsx file\n")
