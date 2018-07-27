@@ -1,6 +1,6 @@
 # coding=utf-8
 from ScriptureObjects import ScriptureText
-from CommonZWC import countChanges
+from CommonZWC import *
 import re
 import sys
 import codecs
@@ -8,43 +8,15 @@ import os
 import shutil
 import difflib
 
-#__________________________________________________________________________________
-# INITIALIZE CONSTANTS WITH REGEX STRINGS:
-
-# consonants
-cCodes = u'\u0915-\u0939\u0958-\u095f\u097b-\u097f' + u'\u0995-\u09b9\u09ce\u09dc-\u09df\u09f0-\u09f1' + u'\u0a15-\u0a39\u0a59-\u0a5f' + u'\u0a95-\u0ab9' + u'\u0b15-\u0b39\u0b5c-\u0b5f\u0b71' + u'\u0b95-\u0bb9' + u'\u0c15-\u0c39\u0c58\u0c59' + u'\u0c95-\u0cb9\u0cde' + u'\u0d15-\u0d39\u0d7a-\u0d7f'
-c = '[' + cCodes + ']'          # c = set of all consonant characters, from each Indic script
-nonCons = '[^' + cCodes + ']'   # nonCons = set of all characters that are not Indic consonants. 
-
-# nukta
-nuktaCodes = u'\u093c\u09bc\u0a3c\u0abc\u0b3c\u0bbc\u0c3c\u0cbc\u0d3c' # includes some yet-to-be adopted nuktas.
-optNukta = '[' + nuktaCodes + ']*' # zero or more nukta characters
-
-# The character class of all scripts' viramas, and the class of everything that is NOT a virama.
-viramaCodes = u'\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d4d'
-virama = '[' + viramaCodes + ']'
-notVirama = '([^' + viramaCodes + '])'
-
-# zw = any number of optional ZWJ or ZWNJ
-zw = u'[\u200c\u200d]*'
-
-# cluster: This is our definition of an orthographic consonant cluster
-cluster =  '(?:' + c + optNukta + virama + zw + ')+(?:' + c + optNukta + ')?'
-
-# Initialization variable
-default = 0
+# AnalyzeZeroWidthCharacters
+# By Dan Em & Anita B
+# Version: 0.7
 
 #__________________________________________________________________________________
 # INITIALIZE OTHER CONSONANTS AND VARIABLES:
 
-
-clusFilename = SettingsDirectory + Project + "\\ClusterStatus.TXT"    # New output to support multiple valid forms
-
-
-#__________________________________________________________________________________
-def showAll(s):
-# Return a version of the string that shows [zwj] and [zwnj] in place of invisible characters
-    return re.sub(u'\u200c', '[zwnj]', re.sub(u'\u200d', '[zwj]', s))
+clusFilename = SettingsDirectory + Project + "\\ClusterCorrections.TXT"    # New output to support multiple valid forms
+clusallFilename = SettingsDirectory + Project + "\\AllClusterCorrections.TXT"    # New output to support multiple valid forms
 
 #__________________________________________________________________________________
 def weightedCt(cl, base):
@@ -67,37 +39,39 @@ def initialize():
 # Open file for output, and read all books to tally the frequency of each form of each cons combination.
 # Return true if successful.
 
-    global clusFilename, invalidReport, formTally, bases, thisVirama, f, clusFile, notVirama, v, virama, listWords, cl
+    global clusFilename, clusallFilename, invalidReport, formTally, thisVirama, f, clusFile, clusallFile, notVirama, v, virama, listWords, cl, clDict
 
+    # Prepare the ClusterCorrections file for writing
     try:
         clusFile = codecs.open(clusFilename, mode='w', encoding='utf-8')
         clusFile.write(u'\uFEFFRoot\tCluster\tClusterShow\tCount\tCorrect\tCorrectShow\tExamples\r\n') # BOM and column headings
-        #TODO: Add an Examples column header
+        
     except Exception, e:
         sys.stderr.write("Unable to write to file: " + clusFilename + "\n")
         return 0
-      
+    
+          
     try:
+        
         scr = ScriptureText(Project)     # Open input project
-        
-        
+         
         listWords = {}
         
+        # Loop through scripture books 
         for reference, text in scr.allBooks(Books):  
         
-            # Ignore any invalid ZW characters. THE REGEXES IN THIS CODE SHOULD MATCH WHAT'S IN THE STANDARDIZE SCRIPT!
-            text2 = re.sub(notVirama + u'[\u200c\u200d]+', r'\1', text)  # Remove any ZW that doesn't follow virama
-            text2 = re.sub('(' + nonCons + optNukta + virama + ')' + u'[\u200c\u200d]+', r'\1', text2) # Remove ZW that follows a weird virama that follows a non-Consonant.
-                                
-            # Keep track of invalid ZW characters removed, so we can report on that at the end.
+            # Ignore any invalid ZW characters. 
+            text2 = ignoreanyInvalidzw(text)
+                                 
+            # Keep track of invalid ZW characters needing removed, so we can report on that at the end.
             invalidCt = countChanges(text, text2)
             if (invalidCt > 0):
                 invalidReport += "\t" + reference[:-4] + ":\t" + str(invalidCt) + "\n"
                         
             # Find the examples and the clusters
-            for example in re.findall('[\p{L}\p{M}\p{Cf}]+', text2):
-                for cl in re.findall(cluster, example):
-                    if cl not in listWords:
+            for example in re.findall('[\p{L}\p{M}\p{Cf}]+', text2):    # for every word in the text
+                for cl in re.findall(cluster, example):                 #    for each cluster in that word, remember this word as an example of it.
+                    if cl not in listWords:                             
                         listWords[cl] = [example]
                     else:
                         # if example not in list values - append unique values
@@ -105,8 +79,8 @@ def initialize():
                             listWords[cl].append(example) 
                 
                     # Count occurrences of each form of each cluster
-                    base = re.sub(zw, '', cl)       # The base form is the simple stacked form
-                   
+                    base = re.sub(zw, '', cl)       # The base form is a simple stack form
+                    
                     if base in formTally:
                         if cl in formTally[base]:
                             formTally[base][cl] += 1
@@ -114,25 +88,57 @@ def initialize():
                             formTally[base][cl] = weightedCt(cl, base)
                     else:
                         formTally[base] = {cl : weightedCt(cl, base)}
-                        
+        
     except Exception, e:
         sys.stderr.write("Error looping through Scripture books.")
         return 0
     
-    return 1    
+    # Read AllClusterCorrections file (if it exists) into clDict.
+    # For each cluster form of each base combination, clDict remembers the Correct and Examples values, and also the new count if it exists in formTally.
+    # Also, give formTally a zero count for any form found in AllClusterCorrections that was not found in the current text.
+    try:
+        if os.path.isfile(clusallFilename):
+            clusallFile = codecs.open(clusallFilename, encoding='utf-8')
+            allfilecontents = clusallFile.read()
+            allfileLines = re.split(r' *[\r\n]+[\s\r\n]*', allfilecontents)   # Split file on newlines (eating any leading or trailing spaces)
+            allfields = re.split(r'\t', allfileLines[0])                      # Split header line on tabs
+            count = 0 
+            
+            for x in range(1, len(allfileLines)):                          # For each of the remaining lines,
+                allfields = re.split(r' *\t *', allfileLines[x])              # Split line on tabs into fields.
+                if len(allfields)> 3:
+                    cl = allfields[1]
+                    base = re.sub(zw, '', cl)
+                    if base not in clDict:
+                        clDict[base] = {}
+                    if base in formTally and cl in formTally[base]:     # If this form exists in the current text
+                        count = formTally[base][cl]                     #   set count and examples according to what is found in current text
+                        examples = getExamples(cl)
+                    else:
+                        count = 0                                       # Otherwise, set count to zero, and retain former examples.
+                        examples = allfields[6]
+                        if base in formTally:                           # and give formTally a zero count for this form.
+                            formTally[base][cl] = 0
+                        else:
+                            formTally[base] = {cl : 0}                            
+                    clDict[base][cl] = [allfields[4], examples, count]     # = [Correct, Examples, Count]
+                              
+            clusallFile.close()
 
+    except Exception, e:
+        sys.stderr.write("Error processing AllClusterCorrections file: " + clusallFilename + "\n")
+        return 0 # Error
 
-# def examples(bCluster):
-    # global listWords      
-    # global ExampleCount
-    # s = sorted(listWords[bCluster])
-    # ls = len(s)
-    # increment = int(ls/ExampleCount) + (ls % ExampleCount > 0)  # increment is rounded up
-    # increment = max(increment, 1) # must not be zero
-    # return ', '.join(s[0:ls:increment])  # Might get slightly different than ExampleCount items
-def examples(bCluster):
-    global listWords      
-    global ExampleCount
+    return 1
+    
+#__________________________________________________________________________________
+def getExamples(bCluster):
+# Return a list of example words of a specified cluster form.
+# This list should contain at most ExampleCount words. (ExampleCount is a parameter from the check's options.)
+# The items in the list should ideally be representative of a wide range of examples rather than merely variations on the same word.
+
+    global listWords      # hash of lists  
+    global ExampleCount   # user-specified option
 
     s = sorted(listWords[bCluster])
     ls = len(s)
@@ -146,72 +152,92 @@ def examples(bCluster):
     for i in range(1,ExampleCount):
         e.append(s[int(0.5 + (ls-1.0)/(ExampleCount-1.0) * i)]) # ExampleCount-1 additional items
     return ', '.join(e)
-    
-# def examplesList(cCluster):
-    # global ExampleCount
-    # sampleList = re.split(',',examples(cCluster))
-       
-    # finalList = []
 
-    # Logic issue: This might exclude close matches even though we have less than ExampleCount items in the list to begin with.
-    # Also, if none are "close" enough (0.6 ratio by default), this will return a list of the *first* ExampleCount items. e.g. All at the beginning of the alphabet.
-    # To use difflib effectively here, I think we'd have to remove the item that is most similar to another item, and repeat until the list has only ExampleCount items remaining.
-    
-    # for example in sampleList:
-        # if len(finalList) == ExampleCount:
-            # return finalList
-        # else:
-            # finalList.append(example);
-            # for each in difflib.get_close_matches(example,sampleList):
-                # sampleList.remove(each)
-           
-    # return finalList
-
+   
+#__________________________________________________________________________________
 ##### MAIN PROGRAM #####
 
 formTally = {} # A hash array of hash arrays to tally the frequency count for each form of each combination of consonants
 clusCt = 0
-rootCt = 0
 invalidReport = ""
+clDict = {} # Dictionary to store from Allclustercorrections file
 
+clusString = []
 
-if initialize():
+if initialize(): # if sucessfully read data from the books
+
+    # Update count and examples in AllClusterCorrections file
+    if os.path.isfile(clusallFilename):
+        clusallFile = codecs.open(clusallFilename, mode='w', encoding='utf-8')
+        clusallFile.write(u'\uFEFFRoot\tCluster\tClusterShow\tCount\tCorrect\tCorrectShow\tExamples\r\n') # BOM and column headings
+    
+        for base in sorted(clDict.iterkeys()):
+            root = re.sub(virama, '', base)     # root is a display form that has just the letters without viramas or ZW chars
+            for cl in sorted(clDict[base], key=lambda a: clDict[base][a][2], reverse=True):  # Sort by count (largest to smallest)
+                clusallFile.write(root + "\t" + cl + "\t" + showAll(cl) + "\t" + str(int(clDict[base][cl][2])) + "\t" + clDict[base][cl][0] + "\t" + showAll(clDict[base][cl][0]) + "\t" + clDict[base][cl][1] + "\r\n")
+            clusallFile.write("\r\n")   
+        clusallFile.close()
+    
+    # Build ClusterCorrections file
     for base in sorted(formTally.iterkeys()):
         root = re.sub(virama, '', base)
         sortedForms = sorted(formTally[base].iterkeys(), key=lambda a: formTally[base][a], reverse=True) # Sort from most frequent to least
         
-        if ExcludeSingle == "No" or len(sortedForms) > 1:
+        if ExcludeSingle == "Yes" and len(sortedForms) == 1:  # Skip single-cluster forms if configured to do so
+            continue
+       
+        newRules = {}   # For the current base, maps Cluster -> Correct, according to what we'd write to the ClusterCorrections file.
+        oldRules = {}   # For the current base, maps Cluster -> Correct, according to what was in the AllClusterCorrections file.
+                        # If these end up with the same contents, we won't need to write to the ClusterCorrections file.
+        if base in clDict:
+            for cl in clDict[base].iterkeys():      # Fill oldRules from clDict
+                oldRules[cl] = clDict[base][cl][0]
         
-            # First write out best form
-            bestForm = sortedForms[0]
-            bestFormShow = showAll(bestForm)
-                    
-            #clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + tamedEglist(bestForm,5)) 
-            # clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t")
-            clusFile.write(root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm])) + "\t" + "\t" + "\t" + examples(bestForm)) 
-            # clusFile.write(', '.join(examplesList(bestForm)))
-            clusFile.write("\r\n")
+        # First handle the best form
+        bestForm = sortedForms[0]  # For now, bestForm is the most frequent form. This may change if we implement rule-and-exception-based options.
+        if base in clDict and bestForm in clDict[base] and clDict[base][bestForm][0] != "": # If a previously-made decision replaces this with a different form, that's the best form.
+            bestForm = clDict[base][bestForm][0]
+        bestFormShow = showAll(bestForm)
+        
+        newRules[bestForm] = ""     # bestForm is always marked as valid (i.e. empty column)
+        clusString = [root + "\t" + bestForm + "\t" + bestFormShow + "\t" + str(int(formTally[base][bestForm]))  + "\t" + "\t" + "\t"] # Output all columns except Examples
+        if base in clDict and bestForm in clDict[base]: # If bestForm was in clDict, no need to run getExamples again. Just retrieve from clDict. (More efficient)
+            clusString.append(clDict[base][bestForm][1] + "\r\n")
+        else:               
+            clusString.append(getExamples(bestForm) + "\r\n")   # Otherwise, get examples.
+        clusCt += 1
+        
+        # Now handle all remaining forms, whether found in the text or not.
+        for thisForm in sortedForms:
+            if thisForm == bestForm:
+                continue
+           
+            clusString.append(root + "\t" + thisForm + "\t" + showAll(thisForm) + "\t" + str(int(formTally[base][thisForm])) + "\t") # Root, Cluster, ClusterShow, Count
+            if base in clDict and thisForm in clDict[base]: # If this form was already in AllClusterCorrections, use the same Correct, CorrectShow, and Examples.
+                clusString.append(clDict[base][thisForm][0] + "\t" + showAll(clDict[base][thisForm][0]) + "\t" + clDict[base][thisForm][1] + "\r\n") 
+                newRules[thisForm] = clDict[base][thisForm][0]
+            else:                                           # Otherwise, propose bestForm as the Correct replacement
+                clusString.append(bestForm + "\t" + bestFormShow + "\t" + getExamples(thisForm) + "\r\n")
+                newRules[thisForm] = bestForm
             clusCt += 1
-            rootCt += 1
-            
-            # Now write out all remaining forms
-            for x in range(1, len(sortedForms)):
-                # clusFile.write(root + "\t" + sortedForms[x] + "\t" + showAll(sortedForms[x]) + "\t" + str(int(formTally[base][sortedForms[x]])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examplesList(sortedForms[x])) # should return a string
-                clusFile.write(root + "\t" + sortedForms[x] + "\t" + showAll(sortedForms[x]) + "\t" + str(int(formTally[base][sortedForms[x]])) + "\t" + bestForm + "\t" + bestFormShow + "\t" + examples(sortedForms[x])) 
-                clusFile.write("\r\n") 
-                clusCt += 1
-                
+        
+        # Write to file if the oldRules in AllClusterCorrections doesn't match with the new rules to propose in ClusterCorrections.
+        if newRules != oldRules:
+            for lineItem in clusString:
+                clusFile.write(lineItem)
             clusFile.write("\r\n")
+    
+clusFile.close()
+
         
 # Report on number of clusters written
 if (clusCt>0):
-    sys.stderr.write(str(clusCt) + " forms of " + str(rootCt) + " consonant combinations written to " + clusFilename + "\n")
+    sys.stderr.write(str(clusCt) + " forms of " + str(len(formTally)) + " consonant combinations written to " + clusFilename + "\n")
     
 # Report on invalid ZW characters, if found
 if (len(invalidReport) > 0):
-    sys.stderr.write("\nAlso note: Using the STANDARDIZE tool to remove invalid ZW characters will fix this many issues:\n" + invalidReport + "\n")
+    sys.stderr.write(" \nAlso note: Using the STANDARDIZE tool to remove invalid ZW characters will fix this many issues:\n" + invalidReport + "\n")
     
-clusFile.close()
 
 # Copy the XLSX file to the project folder, if available and not already there.
 try:
