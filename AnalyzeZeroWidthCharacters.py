@@ -49,7 +49,6 @@ def initialize():
     except Exception, e:
         sys.stderr.write("Unable to write to file: " + clusFilename + "\n")
         return 0
-    
           
     try:
         
@@ -62,6 +61,7 @@ def initialize():
         
             # Ignore any invalid ZW characters. 
             text2 = ignoreanyInvalidzw(text)
+
                                  
             # Keep track of invalid ZW characters needing removed, so we can report on that at the end.
             invalidCt = countChanges(text, text2)

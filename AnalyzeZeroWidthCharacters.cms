@@ -16,5 +16,3 @@
 \optionLocalizedName Exclude clusters that only occur in one form?
 \optionDescription If you don't want to see cluster "groups" that contain only one form of cluster, select Yes.
 \optionDefault No
-
-
