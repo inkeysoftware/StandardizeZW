@@ -1,4 +1,33 @@
 # Commonzwc.py
+import re
+#__________________________________________________________________________________
+# INITIALIZE CONSTANTS WITH REGEX STRINGS:
+
+# consonants
+cCodes = u'\u0915-\u0939\u0958-\u095f\u097b-\u097f' + u'\u0995-\u09b9\u09ce\u09dc-\u09df\u09f0-\u09f1' + u'\u0a15-\u0a39\u0a59-\u0a5f' + u'\u0a95-\u0ab9' + u'\u0b15-\u0b39\u0b5c-\u0b5f\u0b71' + u'\u0b95-\u0bb9' + u'\u0c15-\u0c39\u0c58\u0c59' + u'\u0c95-\u0cb9\u0cde' + u'\u0d15-\u0d39\u0d7a-\u0d7f'
+c = '[' + cCodes + ']'          # c = set of all consonant characters, from each Indic script
+nonCons = '[^' + cCodes + ']'   # nonCons = set of all characters that are not Indic consonants. 
+
+# nukta
+nuktaCodes = u'\u093c\u09bc\u0a3c\u0abc\u0b3c\u0bbc\u0c3c\u0cbc\u0d3c' # includes some yet-to-be adopted nuktas.
+optNukta = '[' + nuktaCodes + ']*' # zero or more nukta characters
+
+# The character class of all scripts' viramas, and the class of everything that is NOT a virama.
+viramaCodes = u'\u094d\u09cd\u0a4d\u0acd\u0b4d\u0bcd\u0c4d\u0ccd\u0d4d'
+virama = '[' + viramaCodes + ']'
+notVirama = '([^' + viramaCodes + '])'
+
+# zw = any number of optional ZWJ or ZWNJ
+zw = u'[\u200c\u200d]*'
+
+# cluster: This is our definition of an orthographic consonant cluster
+cluster =  '(?:' + c + optNukta + virama + zw + ')+(?:' + c + optNukta + ')?'
+
+def ignoreanyInvalidzw(text):
+    # Ignore any invalid ZW characters. THE REGEXES IN THIS CODE SHOULD MATCH WHAT'S IN THE STANDARDIZE SCRIPT!
+    text2 = re.sub(notVirama + u'[\u200c\u200d]+', r'\1', text)  # Remove any ZW that doesn't follow virama
+    text2 = re.sub('(' + nonCons + optNukta + virama + ')' + u'[\u200c\u200d]+', r'\1', text2) # Remove ZW that follows a weird virama that follows a non-Consonant.
+    return text2    
 
 import re
 #__________________________________________________________________________________
@@ -73,4 +102,3 @@ def countChanges(aStr, bStr):
 def showAll(s):
 # Return a version of the string that shows [zwj] and [zwnj] in place of invisible characters
     return re.sub(u'\u200c', '[zwnj]', re.sub(u'\u200d', '[zwj]', s))
-
